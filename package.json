@@ -1,0 +1,41 @@
+{
+  "name": "simple-budget",
+  "version": "1.0.0",
+  "description": "Simple Budget Application - Angular Frontend with ASP.NET Core Backend",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "shared"
+  ],
+  "scripts": {
+    "start": "npm run start --workspace=apps/web",
+    "start:api": "dotnet run --project apps/api",
+    "build": "npm run build --workspace=apps/web",
+    "build:api": "dotnet build apps/api",
+    "test": "npm run test --workspace=apps/web && dotnet test apps/api",
+    "test:frontend": "npm run test --workspace=apps/web",
+    "test:backend": "dotnet test apps/api",
+    "lint": "npm run lint --workspace=apps/web",
+    "install:all": "npm install && dotnet restore apps/api"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/username/simple-budget.git"
+  },
+  "keywords": [
+    "budget",
+    "angular",
+    "aspnet-core",
+    "typescript",
+    "monorepo"
+  ],
+  "author": "",
+  "license": "MIT"
+}

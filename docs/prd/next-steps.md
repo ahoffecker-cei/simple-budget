@@ -1,0 +1,7 @@
+# Next Steps
+
+## UX Expert Prompt
+"Please review the Simple Budget PRD (docs/prd.md) and create comprehensive UI/UX designs focusing on the emotional positioning ('I can handle this' confidence-building experience). Prioritize the reassuring visual language, encouraging color palette, and progressive disclosure patterns defined in the UI Design Goals. Design the three core screens (Dashboard, Budget Setup Wizard, Expense Entry) with particular attention to the 'glance-and-go' dashboard that answers 'Am I doing okay?' and the streamlined expense logging that supports daily habit formation. Ensure WCAG AA compliance and mobile-first responsive design throughout."
+
+## Architect Prompt
+"Please review the Simple Budget PRD (docs/prd.md) and create the technical architecture for this Angular/.NET Core financial confidence platform. Focus on the monolithic architecture with clear service boundaries, Entity Framework Core data modeling for budgets/expenses/users, and Azure deployment strategy within $500/month constraints. Design the database schema, API endpoints, and Angular component structure to support the three defined epics with particular attention to real-time budget calculations, secure financial data handling, and PWA capabilities for mobile experience. Address the offline expense logging requirement (NFR8) and ensure the architecture supports the performance requirements (2-second dashboard load, 500ms expense logging response)."

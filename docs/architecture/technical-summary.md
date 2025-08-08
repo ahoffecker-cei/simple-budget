@@ -1,0 +1,3 @@
+# Technical Summary
+
+Simple Budget employs a **monolithic fullstack architecture** deployed on Azure, featuring an Angular 15+ PWA frontend with ASP.NET Core Web API backend. The system uses **RESTful APIs** for frontend-backend communication, **Entity Framework Core** with SQL Server for data persistence, and **JWT authentication** for secure user sessions. Azure App Service hosts both applications with Azure SQL Database providing managed data storage. This architecture prioritizes development velocity and cost efficiency while maintaining clear service boundaries to enable future microservices migration if needed.
