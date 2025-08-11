@@ -31,5 +31,5 @@ public class Account
     
     // Navigation properties
     [ForeignKey("UserId")]
-    public User? User { get; set; }
+    public ApplicationUser? User { get; set; }
 }

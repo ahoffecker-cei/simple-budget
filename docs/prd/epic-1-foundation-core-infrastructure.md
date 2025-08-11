@@ -1,6 +1,6 @@
 # Epic 1: Foundation & Core Infrastructure
 
-**Epic Goal:** Establish complete project infrastructure (Angular frontend, ASP.NET Core backend, Azure deployment, CI/CD pipeline) while delivering immediate user value through secure account balance display and basic navigation, proving the technical foundation works end-to-end with a simple but meaningful feature.
+**Epic Goal:** Establish complete local development infrastructure (Angular frontend, ASP.NET Core backend, local database) while delivering immediate user value through secure account balance display and basic navigation, proving the technical foundation works end-to-end with a simple but meaningful feature.
 
 ## Story 1.1: Project Setup & Development Environment
 As a **developer**,
@@ -43,17 +43,4 @@ so that **I can see my complete financial picture in one place**.
 6. Responsive design works on mobile, tablet, and desktop as specified in NFR4
 7. Account balance data persists securely in the database
 
-## Story 1.4: Production Deployment & CI/CD
-As a **developer**,
-I want **automated deployment to Azure with CI/CD pipeline**,
-so that **I can deploy updates reliably and the application is publicly accessible**.
-
-### Acceptance Criteria
-1. Azure App Service configured for Angular frontend and ASP.NET Core backend
-2. Azure SQL Database connected with Entity Framework migrations
-3. CI/CD pipeline deploys automatically on main branch commits
-4. HTTPS encryption enforced on all production traffic
-5. Application Insights monitoring configured for performance tracking
-6. Environment variables properly configured for production vs. development
-7. Database migrations run automatically during deployment
-8. Production application accessible via public URL with authentication working
+**Note:** Azure deployment and CI/CD will be addressed in a future epic after local MVP validation is complete.

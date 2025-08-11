@@ -1,3 +1,5 @@
+import { StudentLoanSummary } from './student-loan';
+
 export interface User {
   userId: string;
   email: string;
@@ -7,4 +9,6 @@ export interface User {
   studentLoanBalance: number;
   createdAt: string;
   lastLoginAt: string;
+  // New property for detailed loan information
+  studentLoanSummary?: StudentLoanSummary;
 }

@@ -29,18 +29,21 @@ Simple Budget employs a **monolithic fullstack architecture** deployed on Azure,
 
 ## Platform and Infrastructure Choice
 
-Based on your PRD requirements and $500/month budget constraint, I recommend **Azure as the primary platform**:
+**Local Development First, Azure-Ready Architecture:**
 
-**Option 1: Azure Full Stack (Recommended)**
-- **Pros:** Seamless .NET integration, managed SQL Database, integrated monitoring, cost-effective for small scale, excellent CI/CD integration
-- **Cons:** Microsoft ecosystem lock-in, learning curve for Azure services
-- **Monthly Cost:** ~$200-400 within budget
+**Current Phase: Local Development**
+- **Local Development:** SQL Server LocalDB, IIS Express, Angular CLI dev server
+- **Benefits:** Rapid iteration, no hosting costs, offline development capability
+- **Architecture:** Designed with Azure deployment patterns for seamless future migration
 
-**Recommendation: Azure Full Stack** - Best alignment with your .NET expertise and integrated tooling.
+**Future Phase: Azure Deployment**
+- **Target Platform:** Azure App Service, SQL Database, Application Insights
+- **Migration Path:** Environment configurations and deployment scripts ready for implementation
+- **Estimated Cost:** ~$200-400/month within budget constraints
 
-**Platform:** Azure
-**Key Services:** App Service (frontend/backend), SQL Database, Application Insights, Azure DevOps
-**Deployment Host and Regions:** East US (primary), Central US (backup)
+**Current Platform:** Local Development Environment
+**Future Platform:** Azure
+**Migration Timeline:** Post-MVP validation
 
 ## Repository Structure
 
@@ -55,15 +58,13 @@ Based on your PRD requirements and $500/month budget constraint, I recommend **A
 
 ```mermaid
 graph TD
-    A[User Browser] --> B[Angular PWA - Azure App Service]
-    B --> C[ASP.NET Core API - Azure App Service]
-    C --> D[Azure SQL Database]
-    C --> E[Azure Application Insights]
-    B --> F[Azure Storage - Static Assets]
+    A[User Browser] --> B[Angular PWA - Local Dev Server]
+    B --> C[ASP.NET Core API - IIS Express]
+    C --> D[SQL Server LocalDB]
     
-    G[Azure DevOps] --> H[CI/CD Pipeline]
-    H --> B
-    H --> C
+    E[Future: Azure Migration] --> F[Azure App Service]
+    E --> G[Azure SQL Database]
+    E --> H[Azure Application Insights]
     
     I[Authentication] --> J[JWT Tokens]
     C --> J
