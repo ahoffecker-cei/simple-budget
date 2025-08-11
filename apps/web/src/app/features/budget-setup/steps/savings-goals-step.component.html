@@ -1,0 +1,151 @@
+<div class="step-content">
+  <div class="step-header">
+    <mat-icon class="step-icon">savings</mat-icon>
+    <h3>Let's set your savings goals!</h3>
+    <p class="step-description">
+      Building an emergency fund is one of the most important financial steps you can take. 
+      Let's find a realistic savings goal that works with your budget.
+    </p>
+  </div>
+
+  <!-- Budget Overview -->
+  <div class="budget-overview">
+    <mat-card class="overview-card">
+      <mat-card-content>
+        <h4>Your Budget Snapshot</h4>
+        <div class="budget-breakdown">
+          <div class="budget-item">
+            <span class="label">Monthly Income:</span>
+            <span class="amount positive">${{ monthlyIncome | number:'1.0-0' }}</span>
+          </div>
+          <div class="budget-item">
+            <span class="label">Major Expenses:</span>
+            <span class="amount">${{ totalExpenses | number:'1.0-0' }}</span>
+          </div>
+          <div class="budget-item" *ngIf="studentLoanPayments > 0">
+            <span class="label">Student Loans:</span>
+            <span class="amount">${{ studentLoanPayments | number:'1.0-0' }}</span>
+          </div>
+          <div class="budget-item total">
+            <span class="label">Available for Savings:</span>
+            <span 
+              class="amount" 
+              [class.positive]="availableForSavings > 0"
+              [class.negative]="availableForSavings <= 0">
+              ${{ availableForSavings | number:'1.0-0' }}
+            </span>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Savings Recommendation -->
+  <div class="savings-recommendation">
+    <mat-card class="recommendation-card">
+      <mat-card-content>
+        <mat-icon [style.color]="getSavingsRecommendationColor()">lightbulb</mat-icon>
+        <p [style.color]="getSavingsRecommendationColor()">{{ getSavingsRecommendation() }}</p>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Savings Goals Options -->
+  <div class="savings-goals" *ngIf="availableForSavings > 0">
+    <h4>Choose your savings goal:</h4>
+    <div class="goals-grid">
+      <mat-card 
+        *ngFor="let goal of savingsGoals" 
+        class="goal-card"
+        [class.selected]="selectedGoalType === goal.key"
+        (click)="selectGoal(goal.key)">
+        <mat-card-content>
+          <mat-icon class="goal-icon">{{ goal.icon }}</mat-icon>
+          <h5>{{ goal.label }}</h5>
+          <p class="goal-description">{{ goal.description }}</p>
+          <div class="goal-amount" *ngIf="goal.key !== 'custom'">
+            ${{ getGoalAmount(goal.key) | number:'1.0-0' }}
+          </div>
+          <div class="goal-amount" *ngIf="goal.key === 'custom' && customGoalAmount > 0">
+            ${{ customGoalAmount | number:'1.0-0' }}
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+
+    <!-- Custom Amount Input -->
+    <div class="custom-input" *ngIf="selectedGoalType === 'custom'">
+      <mat-form-field appearance="outline">
+        <mat-label>Custom Savings Goal</mat-label>
+        <input 
+          matInput 
+          type="number"
+          [value]="customGoalAmount"
+          (input)="onCustomAmountChange($event)"
+          placeholder="Enter your savings target">
+        <span matPrefix>$&nbsp;</span>
+        <mat-hint>Enter any amount you'd like to save</mat-hint>
+      </mat-form-field>
+    </div>
+
+    <!-- Time to Goal -->
+    <div class="time-to-goal" *ngIf="selectedGoalType && savingsForm.value.savingsGoal > 0">
+      <mat-card class="timeline-card">
+        <mat-card-content>
+          <div class="timeline-info">
+            <mat-icon>schedule</mat-icon>
+            <div>
+              <h5>Time to reach your goal</h5>
+              <p class="timeline-text">
+                <span class="timeline-months">{{ getTimeToGoal() }} months</span>
+                <span class="timeline-details">
+                  Saving ${{ availableForSavings | number:'1.0-0' }} per month
+                </span>
+              </p>
+            </div>
+          </div>
+          <div class="progress-visualization">
+            <mat-progress-bar 
+              mode="determinate" 
+              [value]="10"
+              class="goal-progress">
+            </mat-progress-bar>
+            <p class="progress-text">You're starting your journey to financial security!</p>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+  </div>
+
+  <!-- No Available Savings -->
+  <div class="no-savings" *ngIf="availableForSavings <= 0">
+    <mat-card class="info-card">
+      <mat-card-content>
+        <mat-icon>info</mat-icon>
+        <div>
+          <h4>Focus on Balancing Your Budget First</h4>
+          <p>
+            Right now, your expenses meet or exceed your income. That's okay! 
+            Let's focus on creating a balanced budget, and you can always add savings goals later as your financial situation improves.
+          </p>
+          <ul>
+            <li>Look for ways to reduce expenses</li>
+            <li>Consider opportunities to increase income</li>
+            <li>Even $25/month is a great start when you're ready</li>
+          </ul>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Skip Option -->
+  <div class="skip-option">
+    <button 
+      mat-button 
+      color="primary" 
+      (click)="savingsForm.patchValue({ savingsGoal: 0 }); selectedGoalType = ''"
+      class="skip-button">
+      Skip for now - I'll set savings goals later
+    </button>
+  </div>
+</div>

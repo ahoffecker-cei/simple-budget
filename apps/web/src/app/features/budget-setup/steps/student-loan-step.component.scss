@@ -1,0 +1,187 @@
+.step-content {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.step-header {
+  text-align: center;
+  margin-bottom: 2rem;
+  
+  .step-icon {
+    font-size: 3rem;
+    width: 3rem;
+    height: 3rem;
+    color: #ff9800;
+    margin-bottom: 1rem;
+  }
+  
+  h3 {
+    font-size: 1.8rem;
+    font-weight: 600;
+    color: #2e7d32;
+    margin-bottom: 0.5rem;
+  }
+  
+  .step-description {
+    font-size: 1rem;
+    color: #666;
+    line-height: 1.5;
+  }
+}
+
+.loan-toggle-section {
+  text-align: center;
+  margin: 2rem 0;
+  
+  .loan-toggle {
+    ::ng-deep .mat-slide-toggle-label {
+      font-size: 1.1rem;
+      font-weight: 500;
+      color: #333;
+    }
+  }
+}
+
+.no-loans-message {
+  margin: 2rem 0;
+}
+
+.encouragement-card {
+  background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%);
+  text-align: center;
+  
+  mat-card-content {
+    padding: 2rem;
+    
+    mat-icon {
+      font-size: 3rem;
+      width: 3rem;
+      height: 3rem;
+      color: #4caf50;
+      margin-bottom: 1rem;
+    }
+    
+    h4 {
+      color: #2e7d32;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+    
+    p {
+      color: #666;
+      margin: 0;
+      line-height: 1.5;
+    }
+  }
+}
+
+.loan-form {
+  margin: 2rem 0;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.loan-field {
+  ::ng-deep .mat-form-field-prefix {
+    font-weight: 600;
+    color: #ff9800;
+  }
+  
+  ::ng-deep input {
+    font-weight: 500;
+  }
+}
+
+.loan-tips {
+  background: #f8f9fa;
+  padding: 1.5rem;
+  border-radius: 8px;
+  border-left: 4px solid #2196f3;
+  margin: 1.5rem 0;
+  
+  h4 {
+    color: #2196f3;
+    margin-bottom: 1rem;
+    font-weight: 600;
+  }
+  
+  ul {
+    margin: 0;
+    padding-left: 1.5rem;
+    
+    li {
+      color: #666;
+      margin-bottom: 0.5rem;
+      line-height: 1.4;
+      
+      strong {
+        color: #333;
+      }
+    }
+  }
+}
+
+.encouragement-box {
+  background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+  border-radius: 8px;
+  padding: 1.5rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  border-left: 4px solid #ff9800;
+  
+  mat-icon {
+    color: #ff9800;
+    font-size: 2rem;
+    width: 2rem;
+    height: 2rem;
+    margin-top: 0.25rem;
+  }
+  
+  div {
+    flex: 1;
+    
+    h5 {
+      color: #e65100;
+      font-weight: 600;
+      margin: 0 0 0.5rem 0;
+    }
+    
+    p {
+      color: #bf360c;
+      margin: 0;
+      font-weight: 500;
+      line-height: 1.4;
+    }
+  }
+}
+
+// Responsive design
+@media (max-width: 768px) {
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .encouragement-box {
+    flex-direction: column;
+    text-align: center;
+    
+    mat-icon {
+      margin: 0;
+    }
+  }
+  
+  .loan-tips {
+    padding: 1rem;
+    
+    ul {
+      padding-left: 1rem;
+    }
+  }
+}

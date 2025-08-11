@@ -1,0 +1,118 @@
+<div class="step-content">
+  <div class="step-header">
+    <mat-icon class="step-icon">receipt</mat-icon>
+    <h3>What are your major monthly expenses?</h3>
+    <p class="step-description">
+      Let's identify your biggest expenses so we can create a realistic budget. 
+      Enter approximate amounts - you can always adjust these later.
+    </p>
+  </div>
+
+  <!-- Income Reference -->
+  <div class="income-reference">
+    <mat-card class="reference-card">
+      <mat-card-content>
+        <div class="reference-info">
+          <mat-icon>account_balance_wallet</mat-icon>
+          <div>
+            <h4>Monthly Income</h4>
+            <p class="income-amount">${{ monthlyIncome | number:'1.0-0' }}</p>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Expenses Form -->
+  <form [formGroup]="expensesForm" class="expenses-form">
+    <div class="expenses-grid">
+      <mat-form-field 
+        *ngFor="let category of expenseCategories" 
+        appearance="outline" 
+        class="expense-field">
+        <mat-label>{{ category.label }}</mat-label>
+        <input 
+          matInput 
+          type="number"
+          [formControlName]="category.key"
+          [placeholder]="category.placeholder">
+        <mat-icon matPrefix>{{ category.icon }}</mat-icon>
+        <span matPrefix>&nbsp;$&nbsp;</span>
+        <mat-hint>{{ category.hint }}</mat-hint>
+      </mat-form-field>
+    </div>
+
+    <!-- Budget Summary -->
+    <div class="budget-summary">
+      <mat-card class="summary-card" [class]="getHealthStatus()">
+        <mat-card-content>
+          <div class="summary-header">
+            <h4>Budget Overview</h4>
+            <div class="health-indicator" [style.background-color]="getHealthColor()">
+              {{ getExpensePercentage() | number:'1.0-0' }}%
+            </div>
+          </div>
+          
+          <div class="summary-details">
+            <div class="summary-row">
+              <span>Monthly Income:</span>
+              <span class="amount positive">${{ monthlyIncome | number:'1.0-0' }}</span>
+            </div>
+            <div class="summary-row">
+              <span>Total Expenses:</span>
+              <span class="amount" [class.negative]="getTotalExpenses() > 0">
+                ${{ getTotalExpenses() | number:'1.0-0' }}
+              </span>
+            </div>
+            <div class="summary-row total">
+              <span>Remaining:</span>
+              <span 
+                class="amount" 
+                [class.positive]="getRemainingIncome() > 0"
+                [class.negative]="getRemainingIncome() < 0">
+                ${{ getRemainingIncome() | number:'1.0-0' }}
+              </span>
+            </div>
+          </div>
+          
+          <div class="health-message" [style.color]="getHealthColor()">
+            <mat-icon>{{ isOverBudget() ? 'warning' : 'check_circle' }}</mat-icon>
+            {{ getHealthMessage() }}
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+
+    <!-- Helpful Tips -->
+    <div class="expense-tips" *ngIf="getTotalExpenses() === 0">
+      <h4>💡 Getting Started Tips</h4>
+      <div class="tips-grid">
+        <div class="tip-item">
+          <mat-icon>home</mat-icon>
+          <span><strong>Housing:</strong> Aim for 25-30% of income</span>
+        </div>
+        <div class="tip-item">
+          <mat-icon>directions_car</mat-icon>
+          <span><strong>Transportation:</strong> Keep under 15% of income</span>
+        </div>
+        <div class="tip-item">
+          <mat-icon>shopping_cart</mat-icon>
+          <span><strong>Groceries:</strong> Typically 10-15% of income</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Over Budget Warning -->
+    <div class="over-budget-warning" *ngIf="isOverBudget()">
+      <mat-card class="warning-card">
+        <mat-card-content>
+          <mat-icon>warning</mat-icon>
+          <div>
+            <h4>Expenses Exceed Income</h4>
+            <p>Your expenses are higher than your income. Consider reducing some categories or finding ways to increase income.</p>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+  </form>
+</div>

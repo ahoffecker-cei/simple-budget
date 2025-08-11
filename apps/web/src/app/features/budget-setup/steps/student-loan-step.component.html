@@ -1,0 +1,84 @@
+<div class="step-content">
+  <div class="step-header">
+    <mat-icon class="step-icon">school</mat-icon>
+    <h3>Tell us about your student loans</h3>
+    <p class="step-description">
+      Understanding your student loan obligations helps us create a realistic budget that accounts for your debt repayment goals.
+      This information is optional and completely private.
+    </p>
+  </div>
+
+  <!-- Student Loan Toggle -->
+  <div class="loan-toggle-section">
+    <mat-slide-toggle 
+      [(ngModel)]="hasStudentLoans"
+      (change)="onHasStudentLoansChange()"
+      color="primary"
+      class="loan-toggle">
+      I have student loans
+    </mat-slide-toggle>
+  </div>
+
+  <!-- No Student Loans Message -->
+  <div class="no-loans-message" *ngIf="!hasStudentLoans">
+    <mat-card class="encouragement-card">
+      <mat-card-content>
+        <mat-icon>celebration</mat-icon>
+        <h4>That's wonderful!</h4>
+        <p>Not having student loans gives you more flexibility in your budget for other financial goals like savings and investments.</p>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Student Loan Form -->
+  <form [formGroup]="studentLoanForm" class="loan-form" *ngIf="hasStudentLoans">
+    <div class="form-row">
+      <mat-form-field appearance="outline" class="loan-field">
+        <mat-label>Monthly Payment</mat-label>
+        <input 
+          matInput 
+          type="number"
+          formControlName="studentLoanPayment"
+          placeholder="Enter monthly payment">
+        <span matPrefix>$&nbsp;</span>
+        <mat-error *ngIf="studentLoanForm.get('studentLoanPayment')?.invalid && studentLoanForm.get('studentLoanPayment')?.touched">
+          {{ getPaymentErrorMessage() }}
+        </mat-error>
+        <mat-hint>Your current monthly payment amount</mat-hint>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="loan-field">
+        <mat-label>Total Balance</mat-label>
+        <input 
+          matInput 
+          type="number"
+          formControlName="studentLoanBalance"
+          placeholder="Enter total balance">
+        <span matPrefix>$&nbsp;</span>
+        <mat-error *ngIf="studentLoanForm.get('studentLoanBalance')?.invalid && studentLoanForm.get('studentLoanBalance')?.touched">
+          {{ getBalanceErrorMessage() }}
+        </mat-error>
+        <mat-hint>Your remaining loan balance</mat-hint>
+      </mat-form-field>
+    </div>
+
+    <!-- Helpful Tips -->
+    <div class="loan-tips" *ngIf="hasStudentLoans">
+      <h4>💡 Helpful Tips</h4>
+      <ul>
+        <li><strong>Find your balance:</strong> Check your loan servicer's website or call them directly</li>
+        <li><strong>Multiple loans:</strong> Add up all your federal and private loans for the total</li>
+        <li><strong>Payment amount:</strong> Use your current required minimum payment</li>
+      </ul>
+    </div>
+
+    <!-- Progress Encouragement -->
+    <div class="encouragement-box" *ngIf="hasStudentLoans && studentLoanForm.valid">
+      <mat-icon>trending_up</mat-icon>
+      <div>
+        <h5>You're taking control!</h5>
+        <p>By tracking your student loans, you're setting yourself up for successful debt management and eventual freedom.</p>
+      </div>
+    </div>
+  </form>
+</div>

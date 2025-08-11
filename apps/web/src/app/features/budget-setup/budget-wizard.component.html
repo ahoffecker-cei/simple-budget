@@ -1,0 +1,94 @@
+<div class="wizard-container">
+  <!-- Progress Header -->
+  <div class="wizard-header">
+    <div class="progress-section">
+      <h2 class="step-title">{{ stepMessage }}</h2>
+      <p class="encouragement-text">{{ encouragementMessage }}</p>
+      
+      <!-- Progress Bar -->
+      <mat-progress-bar 
+        mode="determinate" 
+        [value]="progressPercentage"
+        class="progress-bar">
+      </mat-progress-bar>
+      
+      <!-- Step Indicators -->
+      <div class="step-indicators">
+        <div 
+          *ngFor="let step of [0,1,2,3]; let i = index" 
+          class="step-indicator"
+          [class.active]="i === currentStep"
+          [class.completed]="i < currentStep"
+          [class.available]="budgetWizardService.canProceedToStep(i)"
+          (click)="goToStep(i)">
+          <span class="step-number">{{ i + 1 }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step Content -->
+  <div class="wizard-content">
+    <mat-card class="step-card">
+      <mat-card-content>
+        
+        <!-- Income Step -->
+        <app-income-step 
+          *ngIf="currentStep === 0"
+          (stepValidChange)="budgetWizardService.updateStepData(0, $event.data, $event.isValid)">
+        </app-income-step>
+        
+        <!-- Student Loan Step -->
+        <app-student-loan-step 
+          *ngIf="currentStep === 1"
+          (stepValidChange)="budgetWizardService.updateStepData(1, $event.data, $event.isValid)">
+        </app-student-loan-step>
+        
+        <!-- Major Expenses Step -->
+        <app-major-expenses-step 
+          *ngIf="currentStep === 2"
+          (stepValidChange)="budgetWizardService.updateStepData(2, $event.data, $event.isValid)">
+        </app-major-expenses-step>
+        
+        <!-- Savings Goals Step -->
+        <app-savings-goals-step 
+          *ngIf="currentStep === 3"
+          (stepValidChange)="budgetWizardService.updateStepData(3, $event.data, $event.isValid)">
+        </app-savings-goals-step>
+
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Navigation Footer -->
+  <div class="wizard-navigation">
+    <button 
+      mat-button 
+      color="primary" 
+      (click)="previousStep()"
+      [disabled]="!canGoPrevious() || isLoading"
+      class="nav-button">
+      <mat-icon>arrow_back</mat-icon>
+      Previous
+    </button>
+    
+    <div class="nav-spacer"></div>
+    
+    <button 
+      mat-raised-button 
+      color="primary" 
+      (click)="nextStep()"
+      [disabled]="!canGoNext() || isLoading"
+      class="nav-button next-button">
+      <span *ngIf="currentStep < totalSteps - 1">
+        Next
+        <mat-icon>arrow_forward</mat-icon>
+      </span>
+      <span *ngIf="currentStep === totalSteps - 1">
+        <mat-spinner *ngIf="isLoading" diameter="20" style="margin-right: 8px;"></mat-spinner>
+        Complete Setup
+        <mat-icon *ngIf="!isLoading">check</mat-icon>
+      </span>
+    </button>
+  </div>
+</div>

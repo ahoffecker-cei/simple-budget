@@ -1,0 +1,60 @@
+<div class="step-content">
+  <div class="step-header">
+    <mat-icon class="step-icon">attach_money</mat-icon>
+    <h3>What's your monthly income?</h3>
+    <p class="step-description">
+      This includes your salary, freelance income, side hustles, and any other regular monthly income.
+      Don't worry - we'll keep this information secure and private.
+    </p>
+  </div>
+
+  <form [formGroup]="incomeForm" class="income-form">
+    <mat-form-field appearance="outline" class="income-field">
+      <mat-label>Monthly Income</mat-label>
+      <input 
+        matInput 
+        type="number"
+        formControlName="monthlyIncome"
+        placeholder="Enter your monthly income"
+        (blur)="formatCurrency($event)">
+      <span matPrefix>$&nbsp;</span>
+      <mat-error *ngIf="incomeForm.get('monthlyIncome')?.invalid && incomeForm.get('monthlyIncome')?.touched">
+        {{ getIncomeErrorMessage() }}
+      </mat-error>
+      <mat-hint>Enter amount between $1,000 and $200,000</mat-hint>
+    </mat-form-field>
+
+    <!-- Helpful Examples -->
+    <div class="income-examples" *ngIf="!incomeForm.get('monthlyIncome')?.value">
+      <h4>Need help calculating your monthly income?</h4>
+      <div class="examples-grid">
+        <mat-card class="example-card">
+          <mat-card-content>
+            <h5>Full-time Salary</h5>
+            <p>If you earn $60,000/year, that's <strong>$5,000/month</strong></p>
+          </mat-card-content>
+        </mat-card>
+        
+        <mat-card class="example-card">
+          <mat-card-content>
+            <h5>Hourly + Part-time</h5>
+            <p>$20/hour × 30 hours/week × 4 weeks = <strong>$2,400/month</strong></p>
+          </mat-card-content>
+        </mat-card>
+        
+        <mat-card class="example-card">
+          <mat-card-content>
+            <h5>Multiple Sources</h5>
+            <p>Job ($3,000) + Side hustle ($500) = <strong>$3,500/month</strong></p>
+          </mat-card-content>
+        </mat-card>
+      </div>
+    </div>
+
+    <!-- Encouragement Message -->
+    <div class="encouragement-box" *ngIf="incomeForm.valid">
+      <mat-icon>celebration</mat-icon>
+      <p>Great! You're building a solid foundation for your budget. Every dollar counts toward your financial goals!</p>
+    </div>
+  </form>
+</div>
