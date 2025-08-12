@@ -5,6 +5,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using api.Data;
 using api.Models;
+using api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -68,6 +69,9 @@ builder.Services.AddCors(options =>
     });
 });
 
+// Register application services
+builder.Services.AddScoped<IBudgetValidationService, BudgetValidationService>();
+
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
@@ -101,11 +105,12 @@ if (app.Environment.IsDevelopment())
         try
         {
             await SeedData.SeedStudentLoans(context, userManager);
+            await SeedData.SeedDefaultBudgetCategories(context, userManager);
         }
         catch (Exception ex)
         {
             var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-            logger.LogError(ex, "An error occurred while seeding student loan data");
+            logger.LogError(ex, "An error occurred while seeding data");
         }
     }
 }

@@ -1,10 +1,11 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
 import { MatDialog } from '@angular/material/dialog';
+import { Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 import { DashboardService } from '../services/dashboard.service';
 import { User, StudentLoanSummary, DashboardResponse, Account } from '@simple-budget/shared';
@@ -183,19 +184,70 @@ import { AccountFormDialogComponent, AccountFormData } from './account-form-dial
             </mat-card>
           </section>
 
-          <!-- Budget Setup Encouragement -->
-          <section class="setup-encouragement" *ngIf="user">
-            <mat-card class="setup-card">
-              <div class="setup-content">
-                <div class="setup-icon">
-                  <mat-icon>rocket_launch</mat-icon>
+          <!-- Monthly Budget - Primary Tool -->
+          <section class="monthly-budget-section" *ngIf="user">
+            <mat-card class="budget-primary-card">
+              <div class="card-header">
+                <h3>Monthly Budget</h3>
+                <span class="budget-subtitle">Your primary budgeting tool</span>
+              </div>
+              <div class="budget-overview">
+                <div class="budget-status-row">
+                  <div class="budget-info">
+                    <span class="budget-label">Monthly Income</span>
+                    <span class="budget-amount income">{{user.monthlyIncome | currency}}</span>
+                  </div>
+                  <div class="budget-info">
+                    <span class="budget-label">Budget Status</span>
+                    <span class="budget-status" [ngClass]="getBudgetStatusClass()">{{ getBudgetStatusText() }}</span>
+                  </div>
                 </div>
-                <div class="setup-text">
-                  <h3>Ready to build your budget?</h3>
-                  <p>Let's set up your personalized budget in just a few simple steps. You've got this!</p>
+                <div class="categories-preview">
+                  <div class="category-item preview-item">
+                    <mat-icon class="category-icon essential">star</mat-icon>
+                    <div class="category-info">
+                      <span class="category-label">Essential Categories</span>
+                      <span class="category-desc">Groceries, utilities, housing</span>
+                    </div>
+                  </div>
+                  <div class="category-item preview-item">
+                    <mat-icon class="category-icon flexible">favorite</mat-icon>
+                    <div class="category-info">
+                      <span class="category-label">Flexible Categories</span>
+                      <span class="category-desc">Entertainment, dining out</span>
+                    </div>
+                  </div>
                 </div>
-                <button mat-raised-button color="primary" class="setup-button">
-                  Get Started
+              </div>
+              <div class="budget-actions">
+                <button mat-raised-button color="primary" class="primary-action-button" (click)="navigateToBudgetCategories()">
+                  <mat-icon>category</mat-icon>
+                  Manage Your Budget
+                </button>
+              </div>
+            </mat-card>
+          </section>
+
+          <!-- Savings Goals - Secondary Tool -->
+          <section class="savings-goals-section" *ngIf="user">
+            <mat-card class="goals-secondary-card">
+              <div class="card-header">
+                <h3>Savings Goals</h3>
+                <span class="goals-subtitle">Plan for your future</span>
+              </div>
+              <div class="goals-content">
+                <div class="goals-icon">
+                  <mat-icon>savings</mat-icon>
+                </div>
+                <div class="goals-text">
+                  <h4>Set your financial goals</h4>
+                  <p>Create savings goals and debt payoff plans once your monthly budget is set up.</p>
+                </div>
+              </div>
+              <div class="goals-actions">
+                <button mat-button color="primary" class="secondary-action-button" (click)="navigateToBudgetWizard()">
+                  <mat-icon>flag</mat-icon>
+                  Set Savings Goals
                 </button>
               </div>
             </mat-card>
@@ -811,81 +863,174 @@ import { AccountFormDialogComponent, AccountFormData } from './account-form-dial
       color: var(--color-warning);
     }
 
-    // Setup Encouragement
-    .setup-card {
-      background: linear-gradient(135deg, rgba(244, 162, 97, 0.08) 0%, rgba(90, 155, 212, 0.08) 100%);
-      border: 1px solid rgba(244, 162, 97, 0.3);
+    // Monthly Budget - Primary Card
+    .budget-primary-card {
+      background: linear-gradient(135deg, rgba(90, 155, 212, 0.12) 0%, rgba(82, 183, 136, 0.08) 100%);
+      border: 2px solid rgba(90, 155, 212, 0.3);
+      position: relative;
+      overflow: hidden;
+      box-shadow: var(--shadow-lg);
+      transform: scale(1.02);
+    }
+
+    .budget-primary-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, var(--color-secondary) 0%, var(--color-success) 100%);
+    }
+
+    .budget-subtitle {
+      font-size: 0.8rem;
+      color: var(--color-secondary);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .budget-overview {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-md);
+      margin: var(--spacing-md) 0;
+    }
+
+    .budget-status-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--spacing-md);
+      flex-wrap: wrap;
+    }
+
+    .budget-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex: 1;
+      min-width: 140px;
+    }
+
+    .budget-label {
+      font-size: 0.875rem;
+      color: var(--color-neutral-600);
+      font-weight: 500;
+    }
+
+    .budget-amount.income {
+      font-family: var(--font-mono);
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--color-success);
+    }
+
+    .budget-status {
+      font-size: 0.95rem;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: var(--border-radius-sm);
+      text-align: center;
+    }
+
+    .budget-status.ready-to-start {
+      background: rgba(90, 155, 212, 0.15);
+      color: var(--color-secondary);
+      border: 1px solid rgba(90, 155, 212, 0.3);
+    }
+
+    .primary-action-button {
+      height: 56px;
+      font-weight: 700;
+      font-size: 1.1rem;
+      border-radius: var(--border-radius-md);
+      padding: 0 var(--spacing-xl);
+      min-width: 180px;
+      box-shadow: var(--shadow-md);
+      text-transform: none;
+    }
+
+    // Savings Goals - Secondary Card
+    .goals-secondary-card {
+      background: rgba(244, 162, 97, 0.06);
+      border: 1px solid rgba(244, 162, 97, 0.25);
       position: relative;
       overflow: hidden;
     }
 
-    .setup-card::before {
+    .goals-secondary-card::before {
       content: '';
       position: absolute;
       top: 0;
       left: 0;
       right: 0;
       height: 3px;
-      background: linear-gradient(90deg, var(--color-accent) 0%, var(--color-secondary) 100%);
+      background: linear-gradient(90deg, var(--color-accent) 0%, rgba(244, 162, 97, 0.8) 100%);
     }
 
-    .setup-content {
+    .goals-subtitle {
+      font-size: 0.8rem;
+      color: var(--color-accent);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .goals-content {
       display: flex;
       align-items: center;
       gap: var(--spacing-md);
-      flex-wrap: wrap;
+      margin: var(--spacing-md) 0;
     }
 
-    .setup-icon {
-      background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-secondary) 100%);
-      color: white;
+    .goals-icon {
+      background: rgba(244, 162, 97, 0.15);
       border-radius: 50%;
-      width: 64px;
-      height: 64px;
+      width: 52px;
+      height: 52px;
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
-      padding: 8px;
-      box-shadow: var(--shadow-md);
     }
 
-    .setup-icon mat-icon {
-      font-size: 24px !important;
-      width: 24px !important;
-      height: 24px !important;
+    .goals-icon mat-icon {
+      font-size: 20px !important;
+      width: 20px !important;
+      height: 20px !important;
+      color: var(--color-accent);
       font-family: 'Material Icons' !important;
       line-height: 1 !important;
     }
 
-    .setup-text {
+    .goals-text {
       flex: 1;
-      min-width: 250px;
     }
 
-    .setup-text h3 {
+    .goals-text h4 {
       font-family: var(--font-secondary);
-      font-size: 1.25rem;
+      font-size: 1.1rem;
       font-weight: 600;
       color: var(--color-neutral-900);
       margin: 0 0 var(--spacing-xs) 0;
     }
 
-    .setup-text p {
+    .goals-text p {
       color: var(--color-neutral-600);
       margin: 0;
-      line-height: 1.5;
+      line-height: 1.4;
+      font-size: 0.95rem;
     }
 
-    .setup-button {
-      height: 52px;
-      font-weight: 600;
+    .secondary-action-button {
+      height: 44px;
+      font-weight: 500;
       border-radius: var(--border-radius-md);
-      padding: 0 var(--spacing-xl);
-      min-width: 130px;
-      font-size: 1rem;
-      line-height: 1.2;
-      white-space: nowrap;
+      padding: 0 var(--spacing-md);
+      min-width: 140px;
+      font-size: 0.95rem;
     }
 
     // Profile Details
@@ -1026,8 +1171,12 @@ import { AccountFormDialogComponent, AccountFormData } from './account-form-dial
         grid-column: 2;
       }
       
-      .setup-encouragement {
+      .monthly-budget-section {
         grid-column: 1;
+      }
+      
+      .savings-goals-section {
+        grid-column: 2;
       }
     }
 
@@ -1057,8 +1206,13 @@ import { AccountFormDialogComponent, AccountFormData } from './account-form-dial
         grid-row: 3 / 6;
       }
       
-      .setup-encouragement {
+      .monthly-budget-section {
         grid-column: 1 / 3;
+      }
+      
+      .savings-goals-section {
+        grid-column: 1 / 2;
+        grid-row: 5;
       }
     }
   `]
@@ -1072,7 +1226,9 @@ export class DashboardComponent implements OnInit {
   constructor(
     private authService: AuthService,
     private dashboardService: DashboardService,
-    private dialog: MatDialog
+    private dialog: MatDialog,
+    private router: Router,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
@@ -1103,6 +1259,8 @@ export class DashboardComponent implements OnInit {
         this.dashboardData = data;
         this.accounts = data.accounts;
         this.isLoading = false;
+        // Force change detection to ensure UI updates
+        this.cdr.detectChanges();
       },
       error: (error) => {
         console.error('Failed to load dashboard data:', error);
@@ -1114,6 +1272,7 @@ export class DashboardComponent implements OnInit {
           totalNetWorth: 0,
           accounts: []
         };
+        this.cdr.detectChanges();
       }
     });
   }
@@ -1228,7 +1387,7 @@ export class DashboardComponent implements OnInit {
     };
 
     const dialogRef = this.dialog.open(AccountFormDialogComponent, {
-      width: '500px',
+      width: '600px',
       maxWidth: '90vw',
       data: dialogData,
       panelClass: 'account-form-dialog'
@@ -1238,8 +1397,11 @@ export class DashboardComponent implements OnInit {
       if (result && result.type === 'create') {
         this.dashboardService.createAccount(result.data).subscribe({
           next: () => {
-            // Reload dashboard data after creating account
-            this.loadDashboardData();
+            // Add small delay to ensure backend has processed the creation
+            setTimeout(() => {
+              // Reload dashboard data after creating account
+              this.loadDashboardData();
+            }, 100);
           },
           error: (error) => {
             console.error('Failed to create account:', error);
@@ -1257,7 +1419,7 @@ export class DashboardComponent implements OnInit {
     };
 
     const dialogRef = this.dialog.open(AccountFormDialogComponent, {
-      width: '500px',
+      width: '600px',
       maxWidth: '90vw',
       data: dialogData,
       panelClass: 'account-form-dialog'
@@ -1267,8 +1429,11 @@ export class DashboardComponent implements OnInit {
       if (result && result.type === 'update') {
         this.dashboardService.updateAccount(account.accountId, result.data).subscribe({
           next: () => {
-            // Reload dashboard data after updating account
-            this.loadDashboardData();
+            // Add small delay to ensure backend has processed the update
+            setTimeout(() => {
+              // Reload dashboard data after updating account
+              this.loadDashboardData();
+            }, 100);
           },
           error: (error) => {
             console.error('Failed to update account:', error);
@@ -1283,8 +1448,11 @@ export class DashboardComponent implements OnInit {
     if (confirm(`Are you sure you want to delete "${account.accountName}"?`)) {
       this.dashboardService.deleteAccount(account.accountId).subscribe({
         next: () => {
-          // Reload dashboard data after deleting account
-          this.loadDashboardData();
+          // Add small delay to ensure backend has processed the deletion
+          setTimeout(() => {
+            // Reload dashboard data after deleting account
+            this.loadDashboardData();
+          }, 100);
         },
         error: (error) => {
           console.error('Failed to delete account:', error);
@@ -1361,5 +1529,23 @@ export class DashboardComponent implements OnInit {
         panelClass: 'loan-breakdown-dialog'
       });
     }
+  }
+
+  navigateToBudgetWizard(): void {
+    this.router.navigate(['/budget-wizard']);
+  }
+
+  navigateToBudgetCategories(): void {
+    this.router.navigate(['/budget-categories']);
+  }
+
+  getBudgetStatusClass(): string {
+    // Mock implementation - in real app, this would be calculated from budget data
+    return 'ready-to-start';
+  }
+
+  getBudgetStatusText(): string {
+    // Mock implementation - in real app, this would be calculated from budget data
+    return 'Ready to set up';
   }
 }

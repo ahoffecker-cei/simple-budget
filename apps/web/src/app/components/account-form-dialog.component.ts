@@ -46,22 +46,13 @@ export interface AccountFormData {
             <mat-label>Account Type</mat-label>
             <mat-select formControlName="accountType" [disabled]="!!data.isEdit">
               <mat-option value="checking">
-                <div class="account-option">
-                  <mat-icon>account_balance</mat-icon>
-                  <span>Checking Account</span>
-                </div>
+                <span class="account-option-text">💰 Checking Account</span>
               </mat-option>
               <mat-option value="savings">
-                <div class="account-option">
-                  <mat-icon>savings</mat-icon>
-                  <span>Savings Account</span>
-                </div>
+                <span class="account-option-text">💵 Savings Account</span>
               </mat-option>
               <mat-option value="retirement">
-                <div class="account-option">
-                  <mat-icon>elderly</mat-icon>
-                  <span>Retirement Account</span>
-                </div>
+                <span class="account-option-text">🏦 Retirement Account</span>
               </mat-option>
             </mat-select>
             <mat-hint *ngIf="!data.isEdit">Choose the type of account you want to track</mat-hint>
@@ -93,7 +84,7 @@ export interface AccountFormData {
                    placeholder="0.00"
                    step="0.01"
                    min="0">
-            <span matPrefix>$&nbsp;</span>
+            <span matPrefix>&nbsp;$&nbsp;</span>
             <mat-hint>Enter the current balance in this account</mat-hint>
             <mat-error *ngIf="accountForm.get('currentBalance')?.hasError('required')">
               Current balance is required
@@ -137,8 +128,9 @@ export interface AccountFormData {
   `,
   styles: [`
     .account-form-dialog {
-      min-width: 400px;
-      max-width: 500px;
+      min-width: 500px;
+      max-width: 600px;
+      padding: var(--spacing-lg);
     }
 
     .dialog-header {
@@ -168,8 +160,9 @@ export interface AccountFormData {
     }
 
     .dialog-content {
-      padding: 0 !important;
+      padding: var(--spacing-md) !important;
       margin-bottom: var(--spacing-lg);
+      margin-top: var(--spacing-md);
     }
 
     .account-form {
@@ -178,20 +171,17 @@ export interface AccountFormData {
     }
 
     .form-field {
-      width: 100%;
+      width: calc(100% - var(--spacing-md));
       margin-bottom: var(--spacing-md);
+      margin-left: auto;
+      margin-right: auto;
     }
 
-    .account-option {
+    .account-option-text {
       display: flex;
       align-items: center;
       gap: var(--spacing-sm);
-    }
-
-    .account-option mat-icon {
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
+      font-size: 14px;
     }
 
     .balance-suggestions {

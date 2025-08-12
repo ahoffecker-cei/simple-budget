@@ -21,6 +21,7 @@ public class ApplicationUser : IdentityUser
     // Navigation properties
     public ICollection<Account> Accounts { get; set; } = new List<Account>();
     public ICollection<StudentLoan> StudentLoans { get; set; } = new List<StudentLoan>();
+    public ICollection<BudgetCategory> BudgetCategories { get; set; } = new List<BudgetCategory>();
 }
 
 // Keep original User class for API responses and shared models

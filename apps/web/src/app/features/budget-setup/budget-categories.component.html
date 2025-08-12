@@ -1,0 +1,234 @@
+<div class="categories-container">
+  <!-- Header -->
+  <div class="categories-header">
+    <div class="header-top">
+      <button mat-button class="back-to-dashboard-btn" (click)="navigateBackToDashboard()">
+        <mat-icon>arrow_back</mat-icon>
+        Back to Dashboard
+      </button>
+    </div>
+
+    <div class="progress-section">
+      <h1 class="step-title">Budget Categories</h1>
+      <p class="encouragement-text">Organize your spending with personalized budget categories</p>
+      
+      <!-- Budget Progress Bar -->
+      <div class="budget-summary">
+        <div class="budget-stats">
+          <div class="stat-item">
+            <span class="stat-label">Total Budget</span>
+            <span class="stat-value">{{ formatCurrency(totalBudget) }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Monthly Income</span>
+            <span class="stat-value">{{ formatCurrency(userIncome) }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Remaining</span>
+            <span class="stat-value" [class]="remainingIncome < 0 ? 'over-budget' : 'available'">
+              {{ formatCurrency(remainingIncome) }}
+            </span>
+          </div>
+        </div>
+        
+        <mat-progress-bar 
+          class="budget-progress-bar" 
+          [color]="progressBarColor"
+          mode="determinate" 
+          [value]="budgetPercentage > 100 ? 100 : budgetPercentage">
+        </mat-progress-bar>
+        
+        <div class="budget-health">
+          <mat-icon [class]="'health-icon-' + budgetHealthStatus.status">
+            {{ budgetHealthStatus.status === 'excellent' ? 'star' : 
+               budgetHealthStatus.status === 'good' ? 'thumb_up' :
+               budgetHealthStatus.status === 'fair' ? 'warning' : 'error' }}
+          </mat-icon>
+          <span class="health-message">{{ budgetHealthStatus.message }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Categories Content -->
+  <div class="categories-content">
+    
+    <!-- Loading State -->
+    <div *ngIf="isLoading" class="loading-container">
+      <mat-progress-spinner diameter="48"></mat-progress-spinner>
+      <p>Loading budget categories...</p>
+    </div>
+
+    <!-- Category Suggestions -->
+    <mat-card *ngIf="showSuggestions && !isLoading" class="suggestions-card">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>lightbulb</mat-icon>
+          Get Started with Recommended Categories
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <p class="suggestions-intro">
+          We've created personalized budget categories based on your income. You can customize these amounts or add your own categories.
+        </p>
+        
+        <div class="suggestions-list">
+          <div *ngFor="let suggestion of categorySuggestions" class="suggestion-item">
+            <div class="suggestion-info">
+              <div class="suggestion-header">
+                <span class="suggestion-name">{{ suggestion.name }}</span>
+                <mat-chip [class]="suggestion.isEssential ? 'essential-chip' : 'non-essential-chip'">
+                  {{ suggestion.isEssential ? 'Essential' : 'Flexible' }}
+                </mat-chip>
+              </div>
+              <p class="suggestion-description">{{ suggestion.description }}</p>
+              <span class="suggestion-amount">{{ formatCurrency(suggestion.monthlyLimit) }}</span>
+            </div>
+            <button mat-icon-button 
+                    color="primary" 
+                    (click)="createCategoryFromSuggestion(suggestion)"
+                    matTooltip="Add this category">
+              <mat-icon>add</mat-icon>
+            </button>
+          </div>
+        </div>
+
+        <div class="suggestions-actions">
+          <button mat-stroked-button (click)="dismissSuggestions()">
+            Skip for now
+          </button>
+          <button mat-raised-button 
+                  color="primary" 
+                  (click)="createAllSuggestedCategories()"
+                  [disabled]="isLoading">
+            <mat-icon>add_circle</mat-icon>
+            Add All Categories
+          </button>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Categories Display -->
+    <div *ngIf="!isLoading && (!showSuggestions || budgetCategories.length > 0)" class="categories-display">
+      
+      <!-- Essential Categories -->
+      <div *ngIf="essentialCategories.length > 0" class="category-group">
+        <h2 class="group-title">
+          <mat-icon class="group-icon">star</mat-icon>
+          Essential Categories
+        </h2>
+        <p class="group-description">
+          These are your must-have expenses like housing, utilities, and groceries.
+        </p>
+        
+        <div class="category-grid">
+          <mat-card *ngFor="let category of essentialCategories" class="category-card essential">
+            <mat-card-header>
+              <div class="category-header">
+                <mat-card-title>{{ category.name }}</mat-card-title>
+                <div class="category-actions">
+                  <button mat-icon-button (click)="editCategory(category)" matTooltip="Edit category">
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  <button mat-icon-button 
+                          color="warn" 
+                          (click)="deleteCategory(category)" 
+                          matTooltip="Delete category">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </div>
+              </div>
+            </mat-card-header>
+            <mat-card-content>
+              <p class="category-description">{{ category.description }}</p>
+              <div class="category-budget">
+                <span class="budget-amount">{{ formatCurrency(category.monthlyLimit) }}</span>
+                <span class="budget-percentage">
+                  ({{ calculateBudgetPercentage(category.monthlyLimit) }} of income)
+                </span>
+              </div>
+            </mat-card-content>
+          </mat-card>
+        </div>
+      </div>
+
+      <mat-divider *ngIf="essentialCategories.length > 0 && nonEssentialCategories.length > 0"></mat-divider>
+
+      <!-- Non-Essential Categories -->
+      <div *ngIf="nonEssentialCategories.length > 0" class="category-group">
+        <h2 class="group-title">
+          <mat-icon class="group-icon">favorite</mat-icon>
+          Flexible Categories
+        </h2>
+        <p class="group-description">
+          These are for entertainment, dining out, and other lifestyle expenses you can adjust as needed.
+        </p>
+        
+        <div class="category-grid">
+          <mat-card *ngFor="let category of nonEssentialCategories" class="category-card flexible">
+            <mat-card-header>
+              <div class="category-header">
+                <mat-card-title>{{ category.name }}</mat-card-title>
+                <div class="category-actions">
+                  <button mat-icon-button (click)="editCategory(category)" matTooltip="Edit category">
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  <button mat-icon-button 
+                          color="warn" 
+                          (click)="deleteCategory(category)" 
+                          matTooltip="Delete category">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </div>
+              </div>
+            </mat-card-header>
+            <mat-card-content>
+              <p class="category-description">{{ category.description }}</p>
+              <div class="category-budget">
+                <span class="budget-amount">{{ formatCurrency(category.monthlyLimit) }}</span>
+                <span class="budget-percentage">
+                  ({{ calculateBudgetPercentage(category.monthlyLimit) }} of income)
+                </span>
+              </div>
+            </mat-card-content>
+          </mat-card>
+        </div>
+      </div>
+
+      <!-- Empty State -->
+      <div *ngIf="budgetCategories.length === 0 && !showSuggestions" class="empty-state">
+        <mat-icon class="empty-icon">category</mat-icon>
+        <h3>No Budget Categories Yet</h3>
+        <p>Create your first budget category to start organizing your expenses</p>
+        <button mat-raised-button color="primary" (click)="addNewCategory()">
+          <mat-icon>add</mat-icon>
+          Add Your First Category
+        </button>
+      </div>
+
+      <!-- Add New Category Button -->
+      <div *ngIf="budgetCategories.length > 0" class="add-category-section">
+        <button mat-fab 
+                color="primary" 
+                class="add-category-fab"
+                (click)="addNewCategory()"
+                matTooltip="Add new category">
+          <mat-icon>add</mat-icon>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Navigation -->
+  <div class="categories-navigation">
+    <div class="nav-spacer"></div>
+    <button mat-raised-button 
+            color="primary" 
+            class="next-button" 
+            (click)="proceedToNextStep()"
+            [disabled]="budgetCategories.length === 0">
+      Continue
+      <mat-icon>arrow_forward</mat-icon>
+    </button>
+  </div>
+</div>

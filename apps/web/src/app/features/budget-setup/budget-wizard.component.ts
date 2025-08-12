@@ -129,4 +129,8 @@ export class BudgetWizardComponent implements OnInit, OnDestroy {
         }
       });
   }
+
+  navigateBackToDashboard(): void {
+    this.router.navigate(['/dashboard']);
+  }
 }

@@ -1,0 +1,327 @@
+import { Component, OnInit, OnDestroy, Inject } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import { Subject, takeUntil, debounceTime, distinctUntilChanged } from 'rxjs';
+import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatChipsModule } from '@angular/material/chips';
+import { BudgetCategoriesService } from '../services/budget-categories.service';
+import { BudgetCalculationUtils } from '../services/budget-calculation.utils';
+import { BudgetCategory, UpdateBudgetCategoryRequest, BudgetValidationResult } from '../../../../../../../shared/src/models';
+
+export interface EditCategoryDialogData {
+  category: BudgetCategory;
+  userIncome: number;
+  existingCategories: string[];
+}
+
+@Component({
+  selector: 'app-edit-category-dialog',
+  standalone: true,
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    MatDialogModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatButtonModule,
+    MatIconModule,
+    MatSlideToggleModule,
+    MatProgressSpinnerModule,
+    MatChipsModule
+  ],
+  template: `
+    <div class="dialog-container">
+      <h2 mat-dialog-title>
+        <mat-icon>edit</mat-icon>
+        Edit {{ data.category.name }}
+      </h2>
+      
+      <mat-dialog-content>
+        <form [formGroup]="categoryForm" class="category-form">
+          
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Category Name</mat-label>
+            <input matInput 
+                   formControlName="name" 
+                   placeholder="e.g., Groceries, Entertainment"
+                   maxlength="100">
+            <mat-hint>Choose a descriptive name for your category</mat-hint>
+            <mat-error *ngIf="categoryForm.get('name')?.hasError('required')">
+              Category name is required
+            </mat-error>
+            <mat-error *ngIf="categoryForm.get('name')?.hasError('duplicate')">
+              A category with this name already exists
+            </mat-error>
+          </mat-form-field>
+
+          <div class="form-row">
+            <mat-form-field appearance="outline" class="amount-field">
+              <mat-label>Monthly Budget</mat-label>
+              <span matPrefix>$</span>
+              <input matInput 
+                     type="number" 
+                     formControlName="monthlyLimit"
+                     placeholder="0"
+                     min="0.01"
+                     step="0.01">
+              <mat-error *ngIf="categoryForm.get('monthlyLimit')?.hasError('required')">
+                Monthly budget is required
+              </mat-error>
+              <mat-error *ngIf="categoryForm.get('monthlyLimit')?.hasError('min')">
+                Amount must be greater than $0
+              </mat-error>
+              <mat-error *ngIf="categoryForm.get('monthlyLimit')?.hasError('max')">
+                Amount cannot exceed your total income
+              </mat-error>
+            </mat-form-field>
+            
+            <div class="percentage-display">
+              <span class="percentage-label">of income</span>
+              <span class="percentage-value">{{ getPercentageDisplay() }}</span>
+            </div>
+          </div>
+
+          <div class="essential-toggle">
+            <mat-slide-toggle formControlName="isEssential" color="primary">
+              <span class="toggle-label">Essential Category</span>
+            </mat-slide-toggle>
+            <p class="toggle-hint">
+              Essential categories are for must-have expenses like rent, groceries, and utilities.
+              Non-essential categories are for flexible spending like entertainment and dining out.
+            </p>
+          </div>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Description (Optional)</mat-label>
+            <textarea matInput 
+                      formControlName="description"
+                      placeholder="Add a helpful description or examples of what this category includes..."
+                      rows="3"
+                      maxlength="500"></textarea>
+            <mat-hint>{{ categoryForm.get('description')?.value?.length || 0 }}/500</mat-hint>
+          </mat-form-field>
+
+          <!-- Budget Validation Feedback -->
+          <div *ngIf="validationResult" class="validation-feedback" 
+               [class]="validationResult.isValid ? 'valid' : 'invalid'">
+            <mat-icon>{{ validationResult.isValid ? 'check_circle' : 'warning' }}</mat-icon>
+            <div class="validation-text">
+              <p *ngIf="validationResult.isValid" class="success-message">
+                Perfect! This change fits well within your budget.
+              </p>
+              <p *ngIf="!validationResult.isValid" class="error-message">
+                {{ validationResult.errorMessage }}
+              </p>
+              <div class="budget-summary">
+                <small>
+                  Total budget would be {{ formatCurrency(validationResult.totalBudget) }} 
+                  of {{ formatCurrency(validationResult.userIncome) }} 
+                  ({{ formatPercentage((validationResult.totalBudget / validationResult.userIncome) * 100) }})
+                </small>
+              </div>
+            </div>
+          </div>
+
+        </form>
+      </mat-dialog-content>
+
+      <mat-dialog-actions class="dialog-actions">
+        <button mat-button (click)="onCancel()">Cancel</button>
+        <button mat-raised-button 
+                color="primary" 
+                (click)="onSave()" 
+                [disabled]="!canSave()"
+                class="save-button">
+          <mat-spinner *ngIf="isSaving" diameter="20"></mat-spinner>
+          <mat-icon *ngIf="!isSaving">save</mat-icon>
+          {{ isSaving ? 'Saving...' : 'Save Changes' }}
+        </button>
+      </mat-dialog-actions>
+    </div>
+  `,
+  styleUrls: ['./category-dialog.scss']
+})
+export class EditCategoryDialogComponent implements OnInit, OnDestroy {
+  categoryForm: FormGroup;
+  validationResult: BudgetValidationResult | null = null;
+  isSaving = false;
+  hasChanges = false;
+  
+  private destroy$ = new Subject<void>();
+
+  constructor(
+    private fb: FormBuilder,
+    private budgetCategoriesService: BudgetCategoriesService,
+    private dialogRef: MatDialogRef<EditCategoryDialogComponent>,
+    @Inject(MAT_DIALOG_DATA) public data: EditCategoryDialogData
+  ) {
+    this.categoryForm = this.createForm();
+  }
+
+  ngOnInit(): void {
+    this.setupValidation();
+    this.trackChanges();
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  private createForm(): FormGroup {
+    const category = this.data.category;
+    return this.fb.group({
+      name: [category.name, [Validators.required, Validators.maxLength(100)]],
+      monthlyLimit: [category.monthlyLimit, [Validators.required, Validators.min(0.01), Validators.max(this.data.userIncome)]],
+      isEssential: [category.isEssential],
+      description: [category.description || '', [Validators.maxLength(500)]]
+    });
+  }
+
+  private setupValidation(): void {
+    // Real-time name validation
+    this.categoryForm.get('name')?.valueChanges
+      .pipe(
+        takeUntil(this.destroy$),
+        debounceTime(300),
+        distinctUntilChanged()
+      )
+      .subscribe(name => {
+        this.validateCategoryName(name);
+      });
+
+    // Real-time budget validation
+    this.categoryForm.get('monthlyLimit')?.valueChanges
+      .pipe(
+        takeUntil(this.destroy$),
+        debounceTime(300),
+        distinctUntilChanged()
+      )
+      .subscribe(amount => {
+        if (amount > 0) {
+          this.validateBudgetAllocation(amount);
+        }
+      });
+  }
+
+  private trackChanges(): void {
+    this.categoryForm.valueChanges
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        this.hasChanges = this.checkForChanges();
+      });
+  }
+
+  private checkForChanges(): boolean {
+    const formValue = this.categoryForm.value;
+    const category = this.data.category;
+    
+    return formValue.name !== category.name ||
+           formValue.monthlyLimit !== category.monthlyLimit ||
+           formValue.isEssential !== category.isEssential ||
+           (formValue.description || '') !== (category.description || '');
+  }
+
+  private validateCategoryName(name: string): void {
+    if (!name || name.trim().length === 0) return;
+    
+    // Don't validate against current category name
+    const isDuplicate = this.data.existingCategories.some(
+      existing => existing.toLowerCase() === name.trim().toLowerCase() && 
+      existing !== this.data.category.name
+    );
+    
+    const nameControl = this.categoryForm.get('name');
+    if (isDuplicate) {
+      nameControl?.setErrors({ ...nameControl.errors, duplicate: true });
+    } else {
+      const errors = nameControl?.errors;
+      if (errors) {
+        delete errors['duplicate'];
+        nameControl?.setErrors(Object.keys(errors).length > 0 ? errors : null);
+      }
+    }
+  }
+
+  private validateBudgetAllocation(amount: number): void {
+    // Only validate if amount has changed from original
+    if (amount === this.data.category.monthlyLimit) {
+      this.validationResult = { isValid: true, totalBudget: 0, userIncome: 0, remainingIncome: 0 };
+      return;
+    }
+
+    this.budgetCategoriesService.validateBudgetAllocation(amount, this.data.category.categoryId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (result) => {
+          this.validationResult = result;
+        },
+        error: (error) => {
+          console.error('Validation error:', error);
+          this.validationResult = null;
+        }
+      });
+  }
+
+  getPercentageDisplay(): string {
+    const amount = this.categoryForm.get('monthlyLimit')?.value || 0;
+    if (amount <= 0 || this.data.userIncome <= 0) return '0%';
+    
+    const percentage = (amount / this.data.userIncome) * 100;
+    return BudgetCalculationUtils.formatPercentage(percentage);
+  }
+
+  formatCurrency(amount: number): string {
+    return BudgetCalculationUtils.formatCurrency(amount);
+  }
+
+  formatPercentage(percentage: number): string {
+    return BudgetCalculationUtils.formatPercentage(percentage);
+  }
+
+  canSave(): boolean {
+    return this.categoryForm.valid && 
+           this.hasChanges &&
+           (this.validationResult?.isValid ?? true) && 
+           !this.isSaving;
+  }
+
+  onSave(): void {
+    if (!this.canSave()) return;
+
+    this.isSaving = true;
+    const formValue = this.categoryForm.value;
+    
+    const request: UpdateBudgetCategoryRequest = {
+      name: formValue.name.trim(),
+      monthlyLimit: formValue.monthlyLimit,
+      isEssential: formValue.isEssential,
+      description: formValue.description?.trim() || undefined
+    };
+
+    this.budgetCategoriesService.updateBudgetCategory(this.data.category.categoryId, request)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (category) => {
+          this.isSaving = false;
+          this.dialogRef.close(category);
+        },
+        error: (error) => {
+          this.isSaving = false;
+          console.error('Error updating category:', error);
+          // The parent component will handle the error display
+          this.dialogRef.close({ error });
+        }
+      });
+  }
+
+  onCancel(): void {
+    this.dialogRef.close();
+  }
+}

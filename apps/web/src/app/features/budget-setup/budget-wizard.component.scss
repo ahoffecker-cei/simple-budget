@@ -11,6 +11,28 @@
   margin-bottom: 2rem;
 }
 
+.header-top {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 1rem;
+}
+
+.back-to-dashboard-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #666;
+  transition: color 0.2s ease;
+  
+  &:hover {
+    color: #2e7d32;
+  }
+  
+  mat-icon {
+    font-size: 1.2rem;
+  }
+}
+
 .progress-section {
   text-align: center;
   padding: 1.5rem;

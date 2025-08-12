@@ -65,4 +65,81 @@ public static class SeedData
 
         await context.SaveChangesAsync();
     }
+
+    public static async Task SeedDefaultBudgetCategories(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
+    {
+        // Get users who don't have any budget categories yet
+        var usersWithoutCategories = userManager.Users
+            .Where(u => !context.BudgetCategories.Any(bc => bc.UserId == u.Id))
+            .Take(5) // Limit to first 5 users for development
+            .ToList();
+
+        if (!usersWithoutCategories.Any())
+            return;
+
+        foreach (var user in usersWithoutCategories)
+        {
+            // Calculate suggested limits based on user income
+            var userIncome = user.MonthlyIncome;
+            if (userIncome <= 0) continue; // Skip users without income set
+
+            var defaultCategories = new List<BudgetCategory>
+            {
+                new BudgetCategory
+                {
+                    CategoryId = Guid.NewGuid(),
+                    UserId = user.Id,
+                    Name = "Groceries",
+                    MonthlyLimit = Math.Round(userIncome * 0.10m, 2), // 10% of income
+                    IsEssential = true,
+                    Description = "Food and household essentials like cleaning supplies, personal care items",
+                    CreatedAt = DateTime.UtcNow
+                },
+                new BudgetCategory
+                {
+                    CategoryId = Guid.NewGuid(),
+                    UserId = user.Id,
+                    Name = "Transportation",
+                    MonthlyLimit = Math.Round(userIncome * 0.15m, 2), // 15% of income
+                    IsEssential = true,
+                    Description = "Gas, public transit, car payments, insurance, and maintenance",
+                    CreatedAt = DateTime.UtcNow
+                },
+                new BudgetCategory
+                {
+                    CategoryId = Guid.NewGuid(),
+                    UserId = user.Id,
+                    Name = "Utilities",
+                    MonthlyLimit = Math.Round(userIncome * 0.08m, 2), // 8% of income
+                    IsEssential = true,
+                    Description = "Electricity, water, internet, phone, and other essential services",
+                    CreatedAt = DateTime.UtcNow
+                },
+                new BudgetCategory
+                {
+                    CategoryId = Guid.NewGuid(),
+                    UserId = user.Id,
+                    Name = "Entertainment",
+                    MonthlyLimit = Math.Round(userIncome * 0.05m, 2), // 5% of income
+                    IsEssential = false,
+                    Description = "Movies, games, hobbies, streaming services, and recreational activities",
+                    CreatedAt = DateTime.UtcNow
+                },
+                new BudgetCategory
+                {
+                    CategoryId = Guid.NewGuid(),
+                    UserId = user.Id,
+                    Name = "Dining Out",
+                    MonthlyLimit = Math.Round(userIncome * 0.05m, 2), // 5% of income
+                    IsEssential = false,
+                    Description = "Restaurants, takeout, coffee shops, and other food outside the home",
+                    CreatedAt = DateTime.UtcNow
+                }
+            };
+
+            context.BudgetCategories.AddRange(defaultCategories);
+        }
+
+        await context.SaveChangesAsync();
+    }
 }
