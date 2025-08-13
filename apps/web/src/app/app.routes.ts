@@ -6,6 +6,7 @@ import { DashboardComponent } from './components/dashboard.component';
 import { OnboardingComponent } from './components/onboarding/onboarding.component';
 import { BudgetWizardComponent } from './features/budget-setup/budget-wizard.component';
 import { BudgetCategoriesComponent } from './features/budget-setup/budget-categories.component';
+import { CategoryClassificationComponent } from './features/budget-setup/category-classification.component';
 
 export const routes: Routes = [
   { path: '', redirectTo: '/dashboard', pathMatch: 'full' },
@@ -14,6 +15,7 @@ export const routes: Routes = [
   { path: 'onboarding', component: OnboardingComponent, canActivate: [AuthGuard] },
   { path: 'budget-wizard', component: BudgetWizardComponent, canActivate: [AuthGuard] },
   { path: 'budget-categories', component: BudgetCategoriesComponent, canActivate: [AuthGuard] },
+  { path: 'budget-setup/classification', component: CategoryClassificationComponent, canActivate: [AuthGuard] },
   { path: 'dashboard', component: DashboardComponent, canActivate: [AuthGuard] },
   { path: '**', redirectTo: '/dashboard' }
 ];

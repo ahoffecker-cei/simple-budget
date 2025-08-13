@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using api.Data;
 using api.DTOs;
+using api.Services;
 using System.Security.Claims;
 
 namespace api.Controllers;
@@ -13,10 +14,12 @@ namespace api.Controllers;
 public class DashboardController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
+    private readonly ICategoryClassificationService _classificationService;
 
-    public DashboardController(ApplicationDbContext context)
+    public DashboardController(ApplicationDbContext context, ICategoryClassificationService classificationService)
     {
         _context = context;
+        _classificationService = classificationService;
     }
 
     [HttpGet]
@@ -52,6 +55,19 @@ public class DashboardController : ControllerBase
         };
 
         return Ok(dashboardResponse);
+    }
+
+    [HttpGet("classification-health")]
+    public async Task<ActionResult<BudgetHealthByClassification>> GetClassificationHealth()
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
+        var healthData = await _classificationService.CalculateBudgetHealthByClassificationAsync(userId);
+        return Ok(healthData);
     }
 
     private static string CalculateHealthStatus(decimal totalNetWorth)

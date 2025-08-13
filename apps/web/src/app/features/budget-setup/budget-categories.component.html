@@ -221,6 +221,14 @@
 
   <!-- Navigation -->
   <div class="categories-navigation">
+    <button *ngIf="budgetCategories.length > 0"
+            mat-stroked-button 
+            color="accent"
+            class="classification-button" 
+            routerLink="/budget-setup/classification">
+      <mat-icon>psychology</mat-icon>
+      Classify Essential vs Non-Essential
+    </button>
     <div class="nav-spacer"></div>
     <button mat-raised-button 
             color="primary" 

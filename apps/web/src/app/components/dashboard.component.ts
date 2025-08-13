@@ -1,14 +1,17 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
 import { MatDialog } from '@angular/material/dialog';
-import { Router } from '@angular/router';
+import { Router, NavigationEnd } from '@angular/router';
+import { filter, takeUntil } from 'rxjs/operators';
+import { Subject } from 'rxjs';
 import { AuthService } from '../services/auth.service';
 import { DashboardService } from '../services/dashboard.service';
-import { User, StudentLoanSummary, DashboardResponse, Account } from '@simple-budget/shared';
+import { ClassificationSuggestionService } from '../features/budget-setup/services/classification-suggestion.service';
+import { User, StudentLoanSummary, DashboardResponse, Account, BudgetHealthByClassification } from '@simple-budget/shared';
 import { LoanBreakdownModalComponent } from './loan-breakdown-modal.component';
 import { AccountFormDialogComponent, AccountFormData } from './account-form-dialog.component';
 
@@ -203,22 +206,74 @@ import { AccountFormDialogComponent, AccountFormData } from './account-form-dial
                   </div>
                 </div>
                 <div class="categories-preview">
-                  <div class="category-item preview-item">
-                    <mat-icon class="category-icon essential">star</mat-icon>
+                  <div class="category-item preview-item essential-category">
+                    <div class="category-icon-wrapper essential">
+                      <mat-icon class="category-icon">home</mat-icon>
+                    </div>
                     <div class="category-info">
-                      <span class="category-label">Essential Categories</span>
-                      <span class="category-desc">Groceries, utilities, housing</span>
+                      <span class="category-label">Essential Spending</span>
+                      <span class="category-desc">Housing, utilities, groceries</span>
+                    </div>
+                    <div class="category-status">
+                      <span class="status-text">Required</span>
                     </div>
                   </div>
-                  <div class="category-item preview-item">
-                    <mat-icon class="category-icon flexible">favorite</mat-icon>
+                  <div class="category-item preview-item flexible-category">
+                    <div class="category-icon-wrapper flexible">
+                      <mat-icon class="category-icon">local_cafe</mat-icon>
+                    </div>
                     <div class="category-info">
-                      <span class="category-label">Flexible Categories</span>
-                      <span class="category-desc">Entertainment, dining out</span>
+                      <span class="category-label">Flexible Spending</span>
+                      <span class="category-desc">Dining, entertainment, hobbies</span>
+                    </div>
+                    <div class="category-status">
+                      <span class="status-text">Optional</span>
                     </div>
                   </div>
                 </div>
               </div>
+              
+              <!-- Classification Health Display -->
+              <div class="classification-health-section" *ngIf="classificationHealth">
+                <div class="health-row">
+                  <div class="health-item essential-health">
+                    <div class="health-header">
+                      <mat-icon class="health-icon essential-icon">shield</mat-icon>
+                      <span class="health-label">Essential Spending</span>
+                      <span class="health-status" [ngClass]="'status-' + classificationHealth.essentialHealthStatus">
+                        {{ getHealthStatusText(classificationHealth.essentialHealthStatus) }}
+                      </span>
+                    </div>
+                    <div class="health-details">
+                      <span class="health-amount">{{ classificationHealth.essentialSpending | currency }} / {{ classificationHealth.essentialLimit | currency }}</span>
+                      <div class="health-progress essential-progress">
+                        <div class="progress-fill" 
+                             [style.width.%]="getProgressPercentage(classificationHealth.essentialSpending, classificationHealth.essentialLimit)">
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div class="health-item non-essential-health">
+                    <div class="health-header">
+                      <mat-icon class="health-icon non-essential-icon">star</mat-icon>
+                      <span class="health-label">Non-Essential Spending</span>
+                      <span class="health-status" [ngClass]="'status-' + classificationHealth.nonEssentialHealthStatus">
+                        {{ getHealthStatusText(classificationHealth.nonEssentialHealthStatus) }}
+                      </span>
+                    </div>
+                    <div class="health-details">
+                      <span class="health-amount">{{ classificationHealth.nonEssentialSpending | currency }} / {{ classificationHealth.nonEssentialLimit | currency }}</span>
+                      <div class="health-progress non-essential-progress">
+                        <div class="progress-fill" 
+                             [style.width.%]="getProgressPercentage(classificationHealth.nonEssentialSpending, classificationHealth.nonEssentialLimit)">
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
               <div class="budget-actions">
                 <button mat-raised-button color="primary" class="primary-action-button" (click)="navigateToBudgetCategories()">
                   <mat-icon>category</mat-icon>
@@ -941,6 +996,237 @@ import { AccountFormDialogComponent, AccountFormData } from './account-form-dial
       border: 1px solid rgba(90, 155, 212, 0.3);
     }
 
+    // Categories Preview Styles
+    .categories-preview {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-sm);
+    }
+
+    .category-item.preview-item {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-md);
+      padding: var(--spacing-sm);
+      border-radius: var(--border-radius-md);
+      border: 1px solid;
+      background: white;
+      transition: all 0.2s ease-out;
+    }
+
+    .category-item.essential-category {
+      border-color: rgba(82, 183, 136, 0.3);
+      background: rgba(82, 183, 136, 0.05);
+    }
+
+    .category-item.flexible-category {
+      border-color: rgba(244, 162, 97, 0.3);
+      background: rgba(244, 162, 97, 0.05);
+    }
+
+    .category-icon-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .category-icon-wrapper.essential {
+      background: rgba(82, 183, 136, 0.15);
+    }
+
+    .category-icon-wrapper.flexible {
+      background: rgba(244, 162, 97, 0.15);
+    }
+
+    .category-icon {
+      font-size: 20px !important;
+      width: 20px !important;
+      height: 20px !important;
+      font-family: 'Material Icons' !important;
+      line-height: 1 !important;
+    }
+
+    .category-icon-wrapper.essential .category-icon {
+      color: var(--color-success);
+    }
+
+    .category-icon-wrapper.flexible .category-icon {
+      color: var(--color-accent);
+    }
+
+    .category-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .category-label {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--color-neutral-800);
+    }
+
+    .category-desc {
+      font-size: 0.8rem;
+      color: var(--color-neutral-600);
+      line-height: 1.3;
+    }
+
+    .category-status {
+      display: flex;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .status-text {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 2px 8px;
+      border-radius: var(--border-radius-sm);
+    }
+
+    .essential-category .status-text {
+      background: rgba(82, 183, 136, 0.2);
+      color: var(--color-success);
+    }
+
+    .flexible-category .status-text {
+      background: rgba(244, 162, 97, 0.2);
+      color: var(--color-accent);
+    }
+
+    // Classification Health Section
+    .classification-health-section {
+      margin: var(--spacing-md) 0;
+      padding: var(--spacing-md);
+      background: rgba(240, 248, 255, 0.5);
+      border-radius: var(--border-radius-md);
+      border: 1px solid rgba(90, 155, 212, 0.15);
+    }
+
+    .health-row {
+      display: flex;
+      gap: var(--spacing-md);
+      flex-wrap: wrap;
+    }
+
+    .health-item {
+      flex: 1;
+      min-width: 280px;
+      padding: var(--spacing-sm);
+      background: white;
+      border-radius: var(--border-radius-sm);
+      border: 1px solid;
+    }
+
+    .health-item.essential-health {
+      border-color: rgba(82, 183, 136, 0.3);
+      border-left: 3px solid var(--color-success);
+    }
+
+    .health-item.non-essential-health {
+      border-color: rgba(244, 162, 97, 0.3);
+      border-left: 3px solid var(--color-accent);
+    }
+
+    .health-header {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-xs);
+      margin-bottom: var(--spacing-xs);
+    }
+
+    .health-icon {
+      font-size: 18px !important;
+      width: 18px !important;
+      height: 18px !important;
+    }
+
+    .health-icon.essential-icon {
+      color: var(--color-success);
+    }
+
+    .health-icon.non-essential-icon {
+      color: var(--color-accent);
+    }
+
+    .health-label {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--color-neutral-800);
+      flex: 1;
+    }
+
+    .health-status {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: var(--border-radius-sm);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .health-status.status-excellent {
+      background: rgba(82, 183, 136, 0.15);
+      color: var(--color-success);
+    }
+
+    .health-status.status-good {
+      background: rgba(90, 155, 212, 0.15);
+      color: var(--color-secondary);
+    }
+
+    .health-status.status-attention {
+      background: rgba(249, 199, 79, 0.15);
+      color: var(--color-warning);
+    }
+
+    .health-status.status-concern {
+      background: rgba(231, 76, 60, 0.15);
+      color: #c0392b;
+    }
+
+    .health-details {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-xs);
+    }
+
+    .health-amount {
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--color-neutral-600);
+      font-family: var(--font-mono);
+    }
+
+    .health-progress {
+      height: 6px;
+      background: rgba(0, 0, 0, 0.1);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .health-progress .progress-fill {
+      height: 100%;
+      transition: width 0.3s ease;
+      border-radius: 3px;
+    }
+
+    .essential-progress .progress-fill {
+      background: linear-gradient(90deg, var(--color-success), rgba(82, 183, 136, 0.8));
+    }
+
+    .non-essential-progress .progress-fill {
+      background: linear-gradient(90deg, var(--color-accent), rgba(244, 162, 97, 0.8));
+    }
+
     .primary-action-button {
       height: 56px;
       font-weight: 700;
@@ -1217,26 +1503,40 @@ import { AccountFormDialogComponent, AccountFormData } from './account-form-dial
     }
   `]
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements OnInit, OnDestroy {
   user: User | null = null;
   dashboardData: DashboardResponse | null = null;
   accounts: Account[] = [];
+  classificationHealth: BudgetHealthByClassification | null = null;
   isLoading = false;
+  private destroy$ = new Subject<void>();
 
   constructor(
     private authService: AuthService,
     private dashboardService: DashboardService,
+    private classificationService: ClassificationSuggestionService,
     private dialog: MatDialog,
     private router: Router,
     private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
-    this.authService.currentUser$.subscribe(user => {
+    this.authService.currentUser$.pipe(takeUntil(this.destroy$)).subscribe(user => {
       this.user = user;
       if (user) {
         this.loadDashboardData();
+        this.loadClassificationHealth();
       }
+    });
+
+    // Listen for route changes to refresh data when returning to dashboard
+    this.router.events.pipe(
+      filter(event => event instanceof NavigationEnd),
+      filter((event: NavigationEnd) => event.url === '/dashboard'),
+      takeUntil(this.destroy$)
+    ).subscribe(() => {
+      // Refresh all dashboard data when returning to dashboard
+      this.refreshAllData();
     });
 
     // Refresh user data to get latest loan information
@@ -1249,6 +1549,18 @@ export class DashboardComponent implements OnInit {
           console.error('Failed to refresh user data:', error);
         }
       });
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  refreshAllData(): void {
+    if (this.user) {
+      this.loadDashboardData();
+      this.loadClassificationHealth();
     }
   }
 
@@ -1272,6 +1584,20 @@ export class DashboardComponent implements OnInit {
           totalNetWorth: 0,
           accounts: []
         };
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  loadClassificationHealth(): void {
+    this.classificationService.getClassificationHealth().pipe(takeUntil(this.destroy$)).subscribe({
+      next: (health) => {
+        this.classificationHealth = health;
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        console.error('Failed to load classification health:', error);
+        this.classificationHealth = null;
         this.cdr.detectChanges();
       }
     });
@@ -1547,5 +1873,20 @@ export class DashboardComponent implements OnInit {
   getBudgetStatusText(): string {
     // Mock implementation - in real app, this would be calculated from budget data
     return 'Ready to set up';
+  }
+
+  getHealthStatusText(status: string): string {
+    switch (status) {
+      case 'excellent': return 'Excellent';
+      case 'good': return 'Good';
+      case 'attention': return 'Needs Attention';
+      case 'concern': return 'Needs Help';
+      default: return 'Unknown';
+    }
+  }
+
+  getProgressPercentage(spending: number, limit: number): number {
+    if (limit === 0) return 0;
+    return Math.min((spending / limit) * 100, 100);
   }
 }

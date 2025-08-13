@@ -71,6 +71,7 @@ builder.Services.AddCors(options =>
 
 // Register application services
 builder.Services.AddScoped<IBudgetValidationService, BudgetValidationService>();
+builder.Services.AddScoped<ICategoryClassificationService, CategoryClassificationService>();
 
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi

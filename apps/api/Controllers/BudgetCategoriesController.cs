@@ -17,15 +17,18 @@ public class BudgetCategoriesController : ControllerBase
     private readonly ApplicationDbContext _context;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IBudgetValidationService _budgetValidationService;
+    private readonly ICategoryClassificationService _classificationService;
 
     public BudgetCategoriesController(
         ApplicationDbContext context,
         UserManager<ApplicationUser> userManager,
-        IBudgetValidationService budgetValidationService)
+        IBudgetValidationService budgetValidationService,
+        ICategoryClassificationService classificationService)
     {
         _context = context;
         _userManager = userManager;
         _budgetValidationService = budgetValidationService;
+        _classificationService = classificationService;
     }
 
     [HttpGet]
@@ -408,5 +411,121 @@ public class BudgetCategoriesController : ControllerBase
         }).ToList();
 
         return Ok(categoryDtos);
+    }
+
+    [HttpPut("{id}/classification")]
+    public async Task<ActionResult<BudgetCategoryDto>> UpdateCategoryClassification(Guid id, ClassificationUpdateRequest request)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var userId = _userManager.GetUserId(User);
+        if (userId == null)
+        {
+            return Unauthorized();
+        }
+
+        var budgetCategory = await _context.BudgetCategories
+            .FirstOrDefaultAsync(bc => bc.CategoryId == id && bc.UserId == userId);
+
+        if (budgetCategory == null)
+        {
+            return NotFound();
+        }
+
+        budgetCategory.IsEssential = request.IsEssential;
+        await _context.SaveChangesAsync();
+
+        var categoryDto = new BudgetCategoryDto
+        {
+            CategoryId = budgetCategory.CategoryId,
+            UserId = budgetCategory.UserId,
+            Name = budgetCategory.Name,
+            MonthlyLimit = budgetCategory.MonthlyLimit,
+            IsEssential = budgetCategory.IsEssential,
+            Description = budgetCategory.Description,
+            CreatedAt = budgetCategory.CreatedAt
+        };
+
+        return Ok(categoryDto);
+    }
+
+    [HttpGet("classification-suggestions")]
+    public async Task<ActionResult<List<CategoryClassificationSuggestion>>> GetClassificationSuggestions([FromQuery] string? categoryName = null)
+    {
+        var userId = _userManager.GetUserId(User);
+        if (userId == null)
+        {
+            return Unauthorized();
+        }
+
+        List<CategoryClassificationSuggestion> suggestions;
+
+        if (!string.IsNullOrEmpty(categoryName))
+        {
+            var suggestion = await _classificationService.GetClassificationSuggestionAsync(categoryName);
+            suggestions = new List<CategoryClassificationSuggestion> { suggestion };
+        }
+        else
+        {
+            var categories = await _context.BudgetCategories
+                .Where(bc => bc.UserId == userId)
+                .Select(bc => bc.Name)
+                .ToListAsync();
+
+            suggestions = await _classificationService.GetClassificationSuggestionsAsync(categories);
+        }
+
+        return Ok(suggestions);
+    }
+
+    [HttpPut("bulk-classification")]
+    public async Task<ActionResult<List<BudgetCategoryDto>>> BulkUpdateClassifications(BulkClassificationUpdateRequest request)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var userId = _userManager.GetUserId(User);
+        if (userId == null)
+        {
+            return Unauthorized();
+        }
+
+        var categoryIds = request.Classifications.Select(c => c.CategoryId).ToList();
+        var categories = await _context.BudgetCategories
+            .Where(bc => categoryIds.Contains(bc.CategoryId) && bc.UserId == userId)
+            .ToListAsync();
+
+        var updatedCategories = new List<BudgetCategoryDto>();
+
+        foreach (var classificationUpdate in request.Classifications)
+        {
+            var category = categories.FirstOrDefault(c => c.CategoryId == classificationUpdate.CategoryId);
+            if (category != null)
+            {
+                category.IsEssential = classificationUpdate.IsEssential;
+                updatedCategories.Add(new BudgetCategoryDto
+                {
+                    CategoryId = category.CategoryId,
+                    UserId = category.UserId,
+                    Name = category.Name,
+                    MonthlyLimit = category.MonthlyLimit,
+                    IsEssential = category.IsEssential,
+                    Description = category.Description,
+                    CreatedAt = category.CreatedAt
+                });
+            }
+        }
+
+        if (categories.Any())
+        {
+            await _context.SaveChangesAsync();
+        }
+
+        return Ok(updatedCategories);
     }
 }

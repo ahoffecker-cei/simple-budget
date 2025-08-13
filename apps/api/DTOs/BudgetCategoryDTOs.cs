@@ -66,3 +66,38 @@ public class BudgetValidationResult
     public decimal UserIncome { get; set; }
     public decimal RemainingIncome { get; set; }
 }
+
+public class CategoryClassificationSuggestion
+{
+    public string CategoryName { get; set; } = string.Empty;
+    public bool SuggestedIsEssential { get; set; }
+    public double Confidence { get; set; }
+    public string Reasoning { get; set; } = string.Empty;
+}
+
+public class ClassificationUpdateRequest
+{
+    [Required]
+    public Guid CategoryId { get; set; }
+    
+    [Required]
+    public bool IsEssential { get; set; }
+    
+    public bool UserOverride { get; set; } = false;
+}
+
+public class BulkClassificationUpdateRequest
+{
+    [Required]
+    public List<ClassificationUpdateRequest> Classifications { get; set; } = new();
+}
+
+public class BudgetHealthByClassification
+{
+    public decimal EssentialSpending { get; set; }
+    public decimal EssentialLimit { get; set; }
+    public decimal NonEssentialSpending { get; set; }
+    public decimal NonEssentialLimit { get; set; }
+    public string EssentialHealthStatus { get; set; } = "excellent";
+    public string NonEssentialHealthStatus { get; set; } = "excellent";
+}

@@ -1,0 +1,226 @@
+<!-- Loading State -->
+<div *ngIf="isLoading" class="loading-container">
+  <mat-spinner></mat-spinner>
+  <p>Loading categories and suggestions...</p>
+</div>
+
+<!-- Main Content -->
+<div *ngIf="!isLoading" class="classification-container">
+  
+  <!-- Header Section -->
+  <div class="header-section">
+    <h1>Essential vs Non-Essential Classification</h1>
+    <p class="explanation">
+      <mat-icon class="info-icon">info</mat-icon>
+      <strong>Essential categories</strong> are necessary expenses like rent, utilities, and groceries. 
+      <strong>Non-essential categories</strong> include discretionary spending like entertainment and dining out. 
+      This classification helps you make smart financial decisions when adjusting your budget.
+    </p>
+  </div>
+
+  <!-- Controls Section -->
+  <div class="controls-section">
+    <div class="control-buttons">
+      <button mat-stroked-button 
+              *ngIf="hasSuggestions"
+              (click)="toggleSuggestions()"
+              class="suggestion-toggle">
+        <mat-icon>{{showSuggestions ? 'visibility_off' : 'visibility'}}</mat-icon>
+        {{showSuggestions ? 'Hide' : 'Show'}} AI Suggestions
+      </button>
+      
+      <button mat-raised-button 
+              *ngIf="hasSuggestions && showSuggestions"
+              color="accent"
+              (click)="acceptAllSuggestions()">
+        <mat-icon>check_circle</mat-icon>
+        Apply All Suggestions
+      </button>
+    </div>
+
+    <div class="save-controls" *ngIf="hasDirtyCategories">
+      <button mat-stroked-button (click)="resetChanges()">
+        <mat-icon>refresh</mat-icon>
+        Reset Changes
+      </button>
+      
+      <button mat-raised-button 
+              color="primary"
+              (click)="saveAllChanges()"
+              [disabled]="isSaving">
+        <mat-icon>save</mat-icon>
+        <span *ngIf="!isSaving">Save Changes</span>
+        <span *ngIf="isSaving">Saving...</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Essential Categories Section -->
+  <div class="category-section">
+    <div class="section-header essential-header">
+      <div class="header-content">
+        <mat-icon class="section-icon essential-icon">shield</mat-icon>
+        <h2>Essential Categories</h2>
+        <mat-chip class="category-count essential-chip">{{essentialCategories.length}}</mat-chip>
+      </div>
+      <p class="section-description">
+        Necessary expenses that are difficult to reduce or eliminate
+      </p>
+    </div>
+
+    <div class="categories-grid">
+      <mat-card *ngFor="let category of essentialCategories" 
+                class="category-card essential-card"
+                [class.dirty-card]="category.isDirty">
+        <mat-card-header>
+          <div class="card-header-content">
+            <div class="category-info">
+              <div class="category-title">
+                <mat-icon class="essential-icon">shield</mat-icon>
+                <span class="category-name">{{category.name}}</span>
+                <mat-chip *ngIf="category.isDirty" class="change-indicator">Changed</mat-chip>
+              </div>
+              <div class="category-limit">${{category.monthlyLimit | number:'1.2-2'}}/month</div>
+            </div>
+            
+            <mat-slide-toggle 
+              [(ngModel)]="category.isEssential"
+              (change)="onClassificationChange(category)"
+              color="primary"
+              class="classification-toggle">
+            </mat-slide-toggle>
+          </div>
+        </mat-card-header>
+
+        <mat-card-content>
+          <p *ngIf="category.description" class="category-description">{{category.description}}</p>
+          
+          <!-- AI Suggestion -->
+          <div *ngIf="category.suggestion && showSuggestions" class="suggestion-section">
+            <div class="suggestion-header">
+              <mat-icon class="ai-icon">psychology</mat-icon>
+              <span>AI Suggestion</span>
+              <mat-chip [color]="getConfidenceColor(category.suggestion.confidence)" selected>
+                {{formatConfidence(category.suggestion.confidence)}} confident
+              </mat-chip>
+            </div>
+            
+            <div class="suggestion-content">
+              <div class="suggestion-classification">
+                <span class="suggestion-label">Recommended:</span>
+                <mat-chip [color]="category.suggestion.suggestedIsEssential ? 'primary' : 'accent'" selected>
+                  <mat-icon>{{category.suggestion.suggestedIsEssential ? 'shield' : 'star'}}</mat-icon>
+                  {{category.suggestion.suggestedIsEssential ? 'Essential' : 'Non-Essential'}}
+                </mat-chip>
+              </div>
+              
+              <p class="suggestion-reasoning">{{category.suggestion.reasoning}}</p>
+              
+              <button *ngIf="category.isEssential !== category.suggestion.suggestedIsEssential"
+                      mat-stroked-button
+                      color="accent"
+                      (click)="acceptSuggestion(category)"
+                      class="accept-suggestion">
+                <mat-icon>check</mat-icon>
+                Accept Suggestion
+              </button>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+  </div>
+
+  <!-- Non-Essential Categories Section -->
+  <div class="category-section">
+    <div class="section-header non-essential-header">
+      <div class="header-content">
+        <mat-icon class="section-icon non-essential-icon">star</mat-icon>
+        <h2>Non-Essential Categories</h2>
+        <mat-chip class="category-count non-essential-chip">{{nonEssentialCategories.length}}</mat-chip>
+      </div>
+      <p class="section-description">
+        Discretionary spending that can be adjusted when needed
+      </p>
+    </div>
+
+    <div class="categories-grid">
+      <mat-card *ngFor="let category of nonEssentialCategories" 
+                class="category-card non-essential-card"
+                [class.dirty-card]="category.isDirty">
+        <mat-card-header>
+          <div class="card-header-content">
+            <div class="category-info">
+              <div class="category-title">
+                <mat-icon class="non-essential-icon">star</mat-icon>
+                <span class="category-name">{{category.name}}</span>
+                <mat-chip *ngIf="category.isDirty" class="change-indicator">Changed</mat-chip>
+              </div>
+              <div class="category-limit">${{category.monthlyLimit | number:'1.2-2'}}/month</div>
+            </div>
+            
+            <mat-slide-toggle 
+              [(ngModel)]="category.isEssential"
+              (change)="onClassificationChange(category)"
+              color="primary"
+              class="classification-toggle">
+            </mat-slide-toggle>
+          </div>
+        </mat-card-header>
+
+        <mat-card-content>
+          <p *ngIf="category.description" class="category-description">{{category.description}}</p>
+          
+          <!-- AI Suggestion -->
+          <div *ngIf="category.suggestion && showSuggestions" class="suggestion-section">
+            <div class="suggestion-header">
+              <mat-icon class="ai-icon">psychology</mat-icon>
+              <span>AI Suggestion</span>
+              <mat-chip [color]="getConfidenceColor(category.suggestion.confidence)" selected>
+                {{formatConfidence(category.suggestion.confidence)}} confident
+              </mat-chip>
+            </div>
+            
+            <div class="suggestion-content">
+              <div class="suggestion-classification">
+                <span class="suggestion-label">Recommended:</span>
+                <mat-chip [color]="category.suggestion.suggestedIsEssential ? 'primary' : 'accent'" selected>
+                  <mat-icon>{{category.suggestion.suggestedIsEssential ? 'shield' : 'star'}}</mat-icon>
+                  {{category.suggestion.suggestedIsEssential ? 'Essential' : 'Non-Essential'}}
+                </mat-chip>
+              </div>
+              
+              <p class="suggestion-reasoning">{{category.suggestion.reasoning}}</p>
+              
+              <button *ngIf="category.isEssential !== category.suggestion.suggestedIsEssential"
+                      mat-stroked-button
+                      color="accent"
+                      (click)="acceptSuggestion(category)"
+                      class="accept-suggestion">
+                <mat-icon>check</mat-icon>
+                Accept Suggestion
+              </button>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+  </div>
+
+  <!-- Empty State -->
+  <div *ngIf="categories.length === 0" class="empty-state">
+    <mat-icon class="empty-icon">category</mat-icon>
+    <h3>No Categories Found</h3>
+    <p>Create some budget categories first to classify them as essential or non-essential.</p>
+  </div>
+
+  <!-- Guidance Message -->
+  <div class="guidance-section">
+    <mat-icon class="guidance-icon">lightbulb</mat-icon>
+    <p>
+      <strong>You're in control!</strong> You can always change these classifications later. 
+      The system provides suggestions, but your personal situation determines what's truly essential for you.
+    </p>
+  </div>
+
+</div>

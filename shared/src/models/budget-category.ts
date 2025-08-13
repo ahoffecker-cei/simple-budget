@@ -46,3 +46,29 @@ export interface DefaultBudgetCategory {
   description: string;
   suggestedLimit?: number;
 }
+
+export interface CategoryClassificationSuggestion {
+  categoryName: string;
+  suggestedIsEssential: boolean;
+  confidence: number;
+  reasoning: string;
+}
+
+export interface ClassificationUpdateRequest {
+  categoryId: string;
+  isEssential: boolean;
+  userOverride?: boolean;
+}
+
+export interface BulkClassificationUpdateRequest {
+  classifications: ClassificationUpdateRequest[];
+}
+
+export interface BudgetHealthByClassification {
+  essentialSpending: number;
+  essentialLimit: number;
+  nonEssentialSpending: number;
+  nonEssentialLimit: number;
+  essentialHealthStatus: 'excellent' | 'good' | 'attention' | 'concern';
+  nonEssentialHealthStatus: 'excellent' | 'good' | 'attention' | 'concern';
+}
