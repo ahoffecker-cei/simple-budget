@@ -1,11 +1,14 @@
 import { Component, Inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatDialogModule, MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { MatDialogModule, MAT_DIALOG_DATA, MatDialogRef, MatDialog } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatMenuModule } from '@angular/material/menu';
 import { StudentLoanSummary, StudentLoan } from '@simple-budget/shared';
+import { StudentLoansService } from '../services/student-loans.service';
+import { StudentLoanFormComponent, StudentLoanFormData, StudentLoanFormResult } from './student-loan-form.component';
 
 @Component({
   selector: 'app-loan-breakdown-modal',
@@ -16,7 +19,8 @@ import { StudentLoanSummary, StudentLoan } from '@simple-budget/shared';
     MatButtonModule,
     MatIconModule,
     MatCardModule,
-    MatChipsModule
+    MatChipsModule,
+    MatMenuModule
   ],
   template: `
     <div class="loan-breakdown-modal">
@@ -60,10 +64,25 @@ import { StudentLoanSummary, StudentLoan } from '@simple-budget/shared';
                   <h4>{{loan.servicerName}}</h4>
                   <span class="account-number" *ngIf="loan.accountNumber">{{loan.accountNumber}}</span>
                 </div>
-                <mat-chip-set>
-                  <mat-chip [class]="'chip-' + loan.loanType">{{loan.loanType | titlecase}}</mat-chip>
-                  <mat-chip [class]="'chip-' + loan.status">{{loan.status | titlecase}}</mat-chip>
-                </mat-chip-set>
+                <div class="loan-header-right">
+                  <mat-chip-set>
+                    <mat-chip [class]="'chip-' + loan.loanType">{{loan.loanType | titlecase}}</mat-chip>
+                    <mat-chip [class]="'chip-' + loan.status">{{loan.status | titlecase}}</mat-chip>
+                  </mat-chip-set>
+                  <button mat-icon-button [matMenuTriggerFor]="loanMenu" class="loan-menu-btn">
+                    <mat-icon>more_vert</mat-icon>
+                  </button>
+                  <mat-menu #loanMenu="matMenu">
+                    <button mat-menu-item (click)="editLoan(loan)">
+                      <mat-icon>edit</mat-icon>
+                      <span>Edit Loan</span>
+                    </button>
+                    <button mat-menu-item (click)="deleteLoan(loan)" class="delete-menu-item">
+                      <mat-icon>delete</mat-icon>
+                      <span>Delete Loan</span>
+                    </button>
+                  </mat-menu>
+                </div>
               </div>
               
               <div class="loan-details">
@@ -87,7 +106,10 @@ import { StudentLoanSummary, StudentLoan } from '@simple-budget/shared';
 
       <mat-dialog-actions class="modal-actions">
         <button mat-button (click)="close()">Close</button>
-        <button mat-raised-button color="primary">Manage Loans</button>
+        <button mat-raised-button color="primary" (click)="addLoan()">
+          <mat-icon>add</mat-icon>
+          Add New Loan
+        </button>
       </mat-dialog-actions>
     </div>
   `,
@@ -203,6 +225,33 @@ import { StudentLoanSummary, StudentLoan } from '@simple-budget/shared';
       align-items: flex-start;
       margin-bottom: var(--spacing-sm);
       gap: var(--spacing-sm);
+    }
+
+    .loan-header-right {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--spacing-xs);
+    }
+
+    .loan-menu-btn {
+      color: var(--color-neutral-500);
+      width: 32px !important;
+      height: 32px !important;
+      padding: 0 !important;
+      min-width: auto !important;
+    }
+
+    .loan-menu-btn:hover {
+      color: var(--color-primary);
+      background-color: rgba(90, 155, 212, 0.1);
+    }
+
+    .delete-menu-item {
+      color: #d32f2f !important;
+    }
+
+    .delete-menu-item mat-icon {
+      color: #d32f2f !important;
     }
 
     .loan-servicer h4 {
@@ -323,16 +372,93 @@ import { StudentLoanSummary, StudentLoan } from '@simple-budget/shared';
         align-items: flex-start;
         gap: var(--spacing-xs);
       }
+
+      .loan-header-right {
+        width: 100%;
+        justify-content: space-between;
+        align-items: center;
+      }
     }
   `]
 })
 export class LoanBreakdownModalComponent {
   constructor(
     public dialogRef: MatDialogRef<LoanBreakdownModalComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: StudentLoanSummary
+    @Inject(MAT_DIALOG_DATA) public data: StudentLoanSummary,
+    private dialog: MatDialog,
+    private studentLoansService: StudentLoansService
   ) {}
 
   close(): void {
     this.dialogRef.close();
+  }
+
+  addLoan(): void {
+    const dialogData: StudentLoanFormData = {
+      isEdit: false
+    };
+
+    const dialogRef = this.dialog.open(StudentLoanFormComponent, {
+      width: '600px',
+      maxWidth: '90vw',
+      data: dialogData,
+      panelClass: 'student-loan-form-dialog'
+    });
+
+    dialogRef.afterClosed().subscribe((result: StudentLoanFormResult) => {
+      if (result && result.type === 'create') {
+        this.studentLoansService.createStudentLoan(result.data).subscribe({
+          next: () => {
+            this.dialogRef.close('refresh');
+          },
+          error: (error) => {
+            console.error('Failed to create student loan:', error);
+            // TODO: Show error message to user
+          }
+        });
+      }
+    });
+  }
+
+  editLoan(loan: StudentLoan): void {
+    const dialogData: StudentLoanFormData = {
+      loan: loan,
+      isEdit: true
+    };
+
+    const dialogRef = this.dialog.open(StudentLoanFormComponent, {
+      width: '600px',
+      maxWidth: '90vw',
+      data: dialogData,
+      panelClass: 'student-loan-form-dialog'
+    });
+
+    dialogRef.afterClosed().subscribe((result: StudentLoanFormResult) => {
+      if (result && result.type === 'update') {
+        this.studentLoansService.updateStudentLoan(loan.id, result.data).subscribe({
+          next: () => {
+            this.dialogRef.close('refresh');
+          },
+          error: (error) => {
+            console.error('Failed to update student loan:', error);
+            // TODO: Show error message to user
+          }
+        });
+      }
+    });
+  }
+
+  deleteLoan(loan: StudentLoan): void {
+    if (confirm(`Are you sure you want to delete the loan from ${loan.servicerName}?`)) {
+      this.studentLoansService.deleteStudentLoan(loan.id).subscribe({
+        next: () => {
+          this.dialogRef.close('refresh');
+        },
+        error: (error) => {
+          console.error('Failed to delete student loan:', error);
+          // TODO: Show error message to user
+        }
+      });
+    }
   }
 }

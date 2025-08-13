@@ -30,7 +30,15 @@ describe('DashboardService', () => {
       const mockDashboard: DashboardResponse = {
         overallHealthStatus: 'excellent',
         totalNetWorth: 50000,
-        accounts: []
+        accounts: [],
+        budgetCategories: [],
+        budgetOverview: {
+          totalBudgetAllocated: 0,
+          totalIncome: 5000,
+          budgetHealthStatus: 'excellent',
+          isSetupComplete: false,
+          allocationPercentage: 0
+        }
       };
 
       service.getDashboard().subscribe(dashboard => {

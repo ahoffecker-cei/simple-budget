@@ -46,7 +46,27 @@ describe('DashboardComponent', () => {
         currentBalance: 10000,
         lastUpdated: '2024-01-01T00:00:00Z'
       }
-    ]
+    ],
+    budgetCategories: [
+      {
+        categoryId: '1',
+        name: 'Housing',
+        monthlyLimit: 1500,
+        currentSpending: 0,
+        isEssential: true,
+        description: 'Rent and utilities',
+        allocationPercentage: 0,
+        remainingAmount: 1500,
+        healthStatus: 'excellent'
+      }
+    ],
+    budgetOverview: {
+      totalBudgetAllocated: 1500,
+      totalIncome: 5000,
+      budgetHealthStatus: 'excellent',
+      isSetupComplete: true,
+      allocationPercentage: 30
+    }
   };
 
   beforeEach(async () => {

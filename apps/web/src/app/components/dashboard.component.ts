@@ -11,7 +11,8 @@ import { Subject } from 'rxjs';
 import { AuthService } from '../services/auth.service';
 import { DashboardService } from '../services/dashboard.service';
 import { ClassificationSuggestionService } from '../features/budget-setup/services/classification-suggestion.service';
-import { User, StudentLoanSummary, DashboardResponse, Account, BudgetHealthByClassification } from '@simple-budget/shared';
+import { StudentLoansService } from '../services/student-loans.service';
+import { User, StudentLoanSummary, DashboardResponse, Account, BudgetHealthByClassification, BudgetCategoryWithAllocation, BudgetOverviewData } from '@simple-budget/shared';
 import { LoanBreakdownModalComponent } from './loan-breakdown-modal.component';
 import { AccountFormDialogComponent, AccountFormData } from './account-form-dialog.component';
 
@@ -171,17 +172,19 @@ import { AccountFormDialogComponent, AccountFormData } from './account-form-dial
                   <mat-icon class="overview-icon">school</mat-icon>
                 </div>
                 <div class="overview-item clickable-item" 
-                     *ngIf="getTotalLoanBalance() > 0" 
                      (click)="openLoanBreakdown()"
-                     title="Click to view loan breakdown">
+                     title="Click to manage student loans">
                   <div class="overview-info">
                     <span class="overview-label">
-                      Total Loan Balance
+                      {{ getTotalLoanBalance() > 0 ? 'Total Loan Balance' : 'Student Loans' }}
                       <mat-icon class="info-icon">info</mat-icon>
                     </span>
-                    <span class="overview-amount warning">{{getTotalLoanBalance() | currency}}</span>
+                    <span class="overview-amount" 
+                          [ngClass]="getTotalLoanBalance() > 0 ? 'warning' : 'neutral'">
+                      {{ getTotalLoanBalance() > 0 ? (getTotalLoanBalance() | currency) : 'Manage Loans' }}
+                    </span>
                   </div>
-                  <mat-icon class="overview-icon">account_balance</mat-icon>
+                  <mat-icon class="overview-icon">{{ getTotalLoanBalance() > 0 ? 'account_balance' : 'school' }}</mat-icon>
                 </div>
               </div>
             </mat-card>
@@ -194,90 +197,112 @@ import { AccountFormDialogComponent, AccountFormData } from './account-form-dial
                 <h3>Monthly Budget</h3>
                 <span class="budget-subtitle">Your primary budgeting tool</span>
               </div>
-              <div class="budget-overview">
+
+              <!-- Budget Setup Complete Achievement -->
+              <div class="budget-achievement" *ngIf="dashboardData?.budgetOverview?.isSetupComplete">
+                <div class="achievement-icon">
+                  <mat-icon>check_circle</mat-icon>
+                </div>
+                <div class="achievement-content">
+                  <h4>Budget Setup Complete! 🎉</h4>
+                  <p>Great work! Your budget framework is in place and ready to guide your financial journey.</p>
+                </div>
+              </div>
+
+              <!-- Budget Health Overview -->
+              <div class="budget-health-overview" *ngIf="dashboardData?.budgetOverview">
                 <div class="budget-status-row">
                   <div class="budget-info">
                     <span class="budget-label">Monthly Income</span>
-                    <span class="budget-amount income">{{user.monthlyIncome | currency}}</span>
+                    <span class="budget-amount income">{{dashboardData?.budgetOverview?.totalIncome | currency}}</span>
                   </div>
                   <div class="budget-info">
-                    <span class="budget-label">Budget Status</span>
-                    <span class="budget-status" [ngClass]="getBudgetStatusClass()">{{ getBudgetStatusText() }}</span>
+                    <span class="budget-label">Budget Allocated</span>
+                    <span class="budget-amount allocated">{{dashboardData?.budgetOverview?.totalBudgetAllocated | currency}}</span>
+                  </div>
+                  <div class="budget-info">
+                    <span class="budget-label">Budget Health</span>
+                    <span class="budget-status" [ngClass]="'status-' + dashboardData?.budgetOverview?.budgetHealthStatus">
+                      {{ getHealthStatusText(dashboardData?.budgetOverview?.budgetHealthStatus || 'concern') }}
+                    </span>
                   </div>
                 </div>
-                <div class="categories-preview">
-                  <div class="category-item preview-item essential-category">
-                    <div class="category-icon-wrapper essential">
-                      <mat-icon class="category-icon">home</mat-icon>
-                    </div>
-                    <div class="category-info">
-                      <span class="category-label">Essential Spending</span>
-                      <span class="category-desc">Housing, utilities, groceries</span>
-                    </div>
-                    <div class="category-status">
-                      <span class="status-text">Required</span>
-                    </div>
+                
+                <!-- Budget Allocation Progress -->
+                <div class="budget-allocation-progress">
+                  <div class="allocation-header">
+                    <span class="allocation-label">Budget Allocation</span>
+                    <span class="allocation-percentage">{{(dashboardData?.budgetOverview?.allocationPercentage || 0).toFixed(1)}}%</span>
                   </div>
-                  <div class="category-item preview-item flexible-category">
-                    <div class="category-icon-wrapper flexible">
-                      <mat-icon class="category-icon">local_cafe</mat-icon>
-                    </div>
-                    <div class="category-info">
-                      <span class="category-label">Flexible Spending</span>
-                      <span class="category-desc">Dining, entertainment, hobbies</span>
-                    </div>
-                    <div class="category-status">
-                      <span class="status-text">Optional</span>
+                  <div class="allocation-bar">
+                    <div class="allocation-fill" 
+                         [style.width.%]="Math.min(dashboardData?.budgetOverview?.allocationPercentage || 0, 100)"
+                         [ngClass]="'health-' + (dashboardData?.budgetOverview?.budgetHealthStatus || 'concern')">
                     </div>
                   </div>
                 </div>
               </div>
-              
-              <!-- Classification Health Display -->
-              <div class="classification-health-section" *ngIf="classificationHealth">
-                <div class="health-row">
-                  <div class="health-item essential-health">
-                    <div class="health-header">
-                      <mat-icon class="health-icon essential-icon">shield</mat-icon>
-                      <span class="health-label">Essential Spending</span>
-                      <span class="health-status" [ngClass]="'status-' + classificationHealth.essentialHealthStatus">
-                        {{ getHealthStatusText(classificationHealth.essentialHealthStatus) }}
-                      </span>
-                    </div>
-                    <div class="health-details">
-                      <span class="health-amount">{{ classificationHealth.essentialSpending | currency }} / {{ classificationHealth.essentialLimit | currency }}</span>
-                      <div class="health-progress essential-progress">
-                        <div class="progress-fill" 
-                             [style.width.%]="getProgressPercentage(classificationHealth.essentialSpending, classificationHealth.essentialLimit)">
+
+              <!-- Budget Categories with Allocation Bars -->
+              <div class="budget-categories" *ngIf="dashboardData?.budgetCategories && (dashboardData?.budgetCategories?.length || 0) > 0">
+                <h4>Your Budget Categories</h4>
+                <div class="category-list">
+                  <div class="budget-category-card" 
+                       *ngFor="let category of dashboardData?.budgetCategories"
+                       [ngClass]="category.isEssential ? 'essential-category' : 'non-essential-category'">
+                    <div class="category-header">
+                      <div class="category-info">
+                        <div class="category-name-row">
+                          <mat-icon class="category-type-icon" 
+                                    [ngClass]="category.isEssential ? 'essential-icon' : 'non-essential-icon'">
+                            {{category.isEssential ? 'shield' : 'star'}}
+                          </mat-icon>
+                          <span class="category-name">{{category.name}}</span>
+                          <span class="category-type-badge" 
+                                [ngClass]="category.isEssential ? 'essential-badge' : 'non-essential-badge'">
+                            {{category.isEssential ? 'Essential' : 'Non-Essential'}}
+                          </span>
                         </div>
+                        <p class="category-description" *ngIf="category.description">{{category.description}}</p>
+                      </div>
+                      <div class="category-amounts">
+                        <span class="spending-amount">{{category.currentSpending | currency}}</span>
+                        <span class="budget-limit">/ {{category.monthlyLimit | currency}}</span>
                       </div>
                     </div>
-                  </div>
-                  
-                  <div class="health-item non-essential-health">
-                    <div class="health-header">
-                      <mat-icon class="health-icon non-essential-icon">star</mat-icon>
-                      <span class="health-label">Non-Essential Spending</span>
-                      <span class="health-status" [ngClass]="'status-' + classificationHealth.nonEssentialHealthStatus">
-                        {{ getHealthStatusText(classificationHealth.nonEssentialHealthStatus) }}
-                      </span>
-                    </div>
-                    <div class="health-details">
-                      <span class="health-amount">{{ classificationHealth.nonEssentialSpending | currency }} / {{ classificationHealth.nonEssentialLimit | currency }}</span>
-                      <div class="health-progress non-essential-progress">
+                    
+                    <!-- Category Allocation Progress Bar -->
+                    <div class="category-progress">
+                      <div class="progress-bar">
                         <div class="progress-fill" 
-                             [style.width.%]="getProgressPercentage(classificationHealth.nonEssentialSpending, classificationHealth.nonEssentialLimit)">
+                             [style.width.%]="category.allocationPercentage"
+                             [ngClass]="'health-' + category.healthStatus">
                         </div>
+                      </div>
+                      <div class="progress-details">
+                        <span class="remaining-amount">{{category.remainingAmount | currency}} remaining</span>
+                        <span class="health-status" [ngClass]="'status-' + category.healthStatus">
+                          {{getHealthStatusText(category.healthStatus)}}
+                        </span>
                       </div>
                     </div>
                   </div>
                 </div>
+              </div>
+
+              <!-- Empty State for Budget Setup -->
+              <div class="budget-empty-state" *ngIf="!dashboardData?.budgetCategories || (dashboardData?.budgetCategories?.length || 0) === 0">
+                <div class="empty-icon">
+                  <mat-icon>category</mat-icon>
+                </div>
+                <h4>Ready to Set Up Your Budget?</h4>
+                <p>Create your budget categories to start tracking your spending and reach your financial goals.</p>
               </div>
               
               <div class="budget-actions">
                 <button mat-raised-button color="primary" class="primary-action-button" (click)="navigateToBudgetCategories()">
                   <mat-icon>category</mat-icon>
-                  Manage Your Budget
+                  {{(dashboardData?.budgetCategories?.length || 0) > 0 ? 'Edit Budget' : 'Set Up Budget'}}
                 </button>
               </div>
             </mat-card>
@@ -1501,6 +1526,336 @@ import { AccountFormDialogComponent, AccountFormData } from './account-form-dial
         grid-row: 5;
       }
     }
+
+    // Budget Achievement Styles
+    .budget-achievement {
+      background: linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(76, 175, 80, 0.05) 100%);
+      border: 1px solid rgba(76, 175, 80, 0.2);
+      border-radius: var(--border-radius-md);
+      padding: var(--spacing-md);
+      margin-bottom: var(--spacing-md);
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-md);
+    }
+
+    .achievement-icon mat-icon {
+      font-size: 32px !important;
+      width: 32px !important;
+      height: 32px !important;
+      color: var(--color-success);
+    }
+
+    .achievement-content h4 {
+      margin: 0 0 var(--spacing-xs) 0;
+      color: var(--color-success);
+      font-weight: 600;
+    }
+
+    .achievement-content p {
+      margin: 0;
+      color: var(--color-neutral-700);
+      font-size: 0.9rem;
+    }
+
+    // Budget Health Overview Styles
+    .budget-health-overview {
+      margin-bottom: var(--spacing-lg);
+    }
+
+    .budget-allocation-progress {
+      margin-top: var(--spacing-md);
+      background: rgba(250, 250, 250, 0.5);
+      border-radius: var(--border-radius-md);
+      padding: var(--spacing-md);
+    }
+
+    .allocation-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--spacing-sm);
+    }
+
+    .allocation-label {
+      font-weight: 500;
+      color: var(--color-neutral-700);
+    }
+
+    .allocation-percentage {
+      font-weight: 600;
+      color: var(--color-neutral-900);
+      font-family: var(--font-mono);
+    }
+
+    .allocation-bar {
+      height: 12px;
+      background-color: rgba(0, 0, 0, 0.1);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .allocation-fill {
+      height: 100%;
+      border-radius: 6px;
+      transition: width 0.6s ease-out;
+    }
+
+    .allocation-fill.health-excellent {
+      background: linear-gradient(90deg, var(--color-success) 0%, rgba(76, 175, 80, 0.8) 100%);
+    }
+
+    .allocation-fill.health-good {
+      background: linear-gradient(90deg, var(--color-secondary) 0%, rgba(90, 155, 212, 0.8) 100%);
+    }
+
+    .allocation-fill.health-attention {
+      background: linear-gradient(90deg, var(--color-warning) 0%, rgba(255, 193, 7, 0.8) 100%);
+    }
+
+    .allocation-fill.health-concern {
+      background: linear-gradient(90deg, var(--color-danger) 0%, rgba(244, 67, 54, 0.8) 100%);
+    }
+
+    // Budget Categories Styles
+    .budget-categories {
+      margin-bottom: var(--spacing-lg);
+    }
+
+    .budget-categories h4 {
+      margin: 0 0 var(--spacing-md) 0;
+      color: var(--color-neutral-900);
+      font-weight: 600;
+    }
+
+    .category-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-md);
+    }
+
+    .budget-category-card {
+      background: white;
+      border-radius: var(--border-radius-md);
+      padding: var(--spacing-md);
+      border: 1px solid var(--color-neutral-200);
+      transition: all 0.2s ease-out;
+    }
+
+    .budget-category-card:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .budget-category-card.essential-category {
+      border-left: 4px solid var(--color-success);
+    }
+
+    .budget-category-card.non-essential-category {
+      border-left: 4px solid var(--color-accent);
+    }
+
+    .category-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: var(--spacing-sm);
+    }
+
+    .category-name-row {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      margin-bottom: var(--spacing-xs);
+    }
+
+    .category-type-icon {
+      font-size: 20px !important;
+      width: 20px !important;
+      height: 20px !important;
+    }
+
+    .category-type-icon.essential-icon {
+      color: var(--color-success);
+    }
+
+    .category-type-icon.non-essential-icon {
+      color: var(--color-accent);
+    }
+
+    .category-name {
+      font-weight: 600;
+      color: var(--color-neutral-900);
+      font-size: 1.05rem;
+    }
+
+    .category-type-badge {
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .category-type-badge.essential-badge {
+      background-color: rgba(76, 175, 80, 0.1);
+      color: var(--color-success);
+    }
+
+    .category-type-badge.non-essential-badge {
+      background-color: rgba(244, 162, 97, 0.1);
+      color: var(--color-accent);
+    }
+
+    .category-description {
+      font-size: 0.85rem;
+      color: var(--color-neutral-600);
+      margin: 0;
+      line-height: 1.3;
+    }
+
+    .category-amounts {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-xs);
+      font-family: var(--font-mono);
+    }
+
+    .spending-amount {
+      font-weight: 600;
+      color: var(--color-neutral-900);
+      font-size: 1.1rem;
+    }
+
+    .budget-limit {
+      color: var(--color-neutral-500);
+      font-size: 0.95rem;
+    }
+
+    .category-progress {
+      margin-top: var(--spacing-sm);
+    }
+
+    .progress-bar {
+      height: 8px;
+      background-color: rgba(0, 0, 0, 0.1);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: var(--spacing-xs);
+    }
+
+    .progress-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.6s ease-out;
+    }
+
+    .progress-fill.health-excellent {
+      background: var(--color-success);
+    }
+
+    .progress-fill.health-good {
+      background: var(--color-secondary);
+    }
+
+    .progress-fill.health-attention {
+      background: var(--color-warning);
+    }
+
+    .progress-fill.health-concern {
+      background: var(--color-danger);
+    }
+
+    .progress-details {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+    }
+
+    .remaining-amount {
+      color: var(--color-neutral-600);
+      font-family: var(--font-mono);
+    }
+
+    .health-status {
+      font-weight: 500;
+    }
+
+    .health-status.status-excellent {
+      color: var(--color-success);
+    }
+
+    .health-status.status-good {
+      color: var(--color-secondary);
+    }
+
+    .health-status.status-attention {
+      color: var(--color-warning);
+    }
+
+    .health-status.status-concern {
+      color: var(--color-danger);
+    }
+
+    // Budget Empty State
+    .budget-empty-state {
+      text-align: center;
+      padding: var(--spacing-xl);
+      background: rgba(250, 250, 250, 0.5);
+      border-radius: var(--border-radius-md);
+      margin-bottom: var(--spacing-lg);
+    }
+
+    .budget-empty-state .empty-icon mat-icon {
+      font-size: 48px !important;
+      width: 48px !important;
+      height: 48px !important;
+      color: var(--color-neutral-400);
+      margin-bottom: var(--spacing-md);
+    }
+
+    .budget-empty-state h4 {
+      margin: 0 0 var(--spacing-sm) 0;
+      color: var(--color-neutral-700);
+    }
+
+    .budget-empty-state p {
+      margin: 0;
+      color: var(--color-neutral-500);
+      max-width: 400px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    // Mobile Responsive for Budget Categories
+    @media (max-width: 768px) {
+      .budget-category-card {
+        padding: var(--spacing-sm);
+      }
+
+      .category-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--spacing-sm);
+      }
+
+      .category-amounts {
+        justify-content: flex-end;
+      }
+
+      .budget-achievement {
+        flex-direction: column;
+        text-align: center;
+      }
+
+      .allocation-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--spacing-xs);
+      }
+    }
   `]
 })
 export class DashboardComponent implements OnInit, OnDestroy {
@@ -1510,11 +1865,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
   classificationHealth: BudgetHealthByClassification | null = null;
   isLoading = false;
   private destroy$ = new Subject<void>();
+  
+  // Make Math available in template
+  Math = Math;
 
   constructor(
     private authService: AuthService,
     private dashboardService: DashboardService,
     private classificationService: ClassificationSuggestionService,
+    private studentLoansService: StudentLoansService,
     private dialog: MatDialog,
     private router: Router,
     private cdr: ChangeDetectorRef
@@ -1582,7 +1941,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.dashboardData = {
           overallHealthStatus: 'concern',
           totalNetWorth: 0,
-          accounts: []
+          accounts: [],
+          budgetCategories: []
         };
         this.cdr.detectChanges();
       }
@@ -1789,72 +2149,53 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   openLoanBreakdown(): void {
-    if (this.user?.studentLoanSummary) {
-      this.dialog.open(LoanBreakdownModalComponent, {
-        width: '800px',
-        maxWidth: '95vw',
-        maxHeight: '90vh',
-        data: this.user.studentLoanSummary,
-        panelClass: 'loan-breakdown-dialog'
-      });
-    } else {
-      // If no detailed loan data, show a mock breakdown for demonstration
-      const mockSummary: StudentLoanSummary = {
-        totalBalance: this.getTotalLoanBalance(),
-        totalMonthlyPayment: this.getTotalLoanPayment(),
-        averageInterestRate: 5.5,
-        totalLoans: 3,
-        loans: [
-          {
-            id: '1',
-            userId: this.user?.userId || '',
-            servicerName: 'Navient',
-            accountNumber: '****1234',
-            balance: this.getTotalLoanBalance() * 0.4,
-            interestRate: 4.5,
-            monthlyPayment: this.getTotalLoanPayment() * 0.3,
-            loanType: 'federal',
-            status: 'active',
-            createdAt: '2023-01-01',
-            updatedAt: '2024-01-01'
-          },
-          {
-            id: '2',
-            userId: this.user?.userId || '',
-            servicerName: 'Great Lakes',
-            accountNumber: '****5678',
-            balance: this.getTotalLoanBalance() * 0.35,
-            interestRate: 6.0,
-            monthlyPayment: this.getTotalLoanPayment() * 0.4,
-            loanType: 'federal',
-            status: 'active',
-            createdAt: '2023-01-01',
-            updatedAt: '2024-01-01'
-          },
-          {
-            id: '3',
-            userId: this.user?.userId || '',
-            servicerName: 'SallieMae',
-            accountNumber: '****9012',
-            balance: this.getTotalLoanBalance() * 0.25,
-            interestRate: 7.2,
-            monthlyPayment: this.getTotalLoanPayment() * 0.3,
-            loanType: 'private',
-            status: 'active',
-            createdAt: '2023-01-01',
-            updatedAt: '2024-01-01'
-          }
-        ]
-      };
+    // First, try to load real loan data from API
+    this.studentLoansService.getStudentLoans().subscribe({
+      next: (loanSummary) => {
+        this.showLoanBreakdownModal(loanSummary);
+      },
+      error: (error) => {
+        console.error('Failed to load loan data:', error);
+        // Fall back to mock data or user profile data
+        if (this.user?.studentLoanSummary) {
+          this.showLoanBreakdownModal(this.user.studentLoanSummary);
+        } else {
+          // Create empty summary to allow adding loans
+          const emptySummary: StudentLoanSummary = {
+            totalBalance: 0,
+            totalMonthlyPayment: 0,
+            averageInterestRate: 0,
+            totalLoans: 0,
+            loans: []
+          };
+          this.showLoanBreakdownModal(emptySummary);
+        }
+      }
+    });
+  }
 
-      this.dialog.open(LoanBreakdownModalComponent, {
-        width: '800px',
-        maxWidth: '95vw',
-        maxHeight: '90vh',
-        data: mockSummary,
-        panelClass: 'loan-breakdown-dialog'
-      });
-    }
+  private showLoanBreakdownModal(loanSummary: StudentLoanSummary): void {
+    const dialogRef = this.dialog.open(LoanBreakdownModalComponent, {
+      width: '800px',
+      maxWidth: '95vw',
+      maxHeight: '90vh',
+      data: loanSummary,
+      panelClass: 'loan-breakdown-dialog'
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result === 'refresh') {
+        // Refresh all dashboard data when loans are modified
+        this.refreshAllData();
+        
+        // Also refresh the user data to update loan summary
+        this.authService.refreshCurrentUser().subscribe({
+          error: (error) => {
+            console.error('Failed to refresh user data:', error);
+          }
+        });
+      }
+    });
   }
 
   navigateToBudgetWizard(): void {
