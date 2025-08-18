@@ -5,3 +5,6 @@ export * from './student-loan';
 export * from './dashboard';
 export * from './budget-wizard';
 export * from './budget-category';
+export * from './expense';
+export * from './budget-impact';
+export * from './category-customization';

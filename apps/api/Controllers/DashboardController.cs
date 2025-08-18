@@ -16,21 +16,31 @@ public class DashboardController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
     private readonly ICategoryClassificationService _classificationService;
+    private readonly IBudgetCalculationService _budgetCalculationService;
+    private readonly IDashboardService _dashboardService;
 
-    public DashboardController(ApplicationDbContext context, ICategoryClassificationService classificationService)
+    public DashboardController(ApplicationDbContext context, ICategoryClassificationService classificationService, IBudgetCalculationService budgetCalculationService, IDashboardService dashboardService)
     {
         _context = context;
         _classificationService = classificationService;
+        _budgetCalculationService = budgetCalculationService;
+        _dashboardService = dashboardService;
     }
 
     [HttpGet]
     public async Task<ActionResult<DashboardResponse>> GetDashboard()
     {
+        Console.WriteLine("DEBUG: Dashboard endpoint called");
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userId))
         {
             return Unauthorized();
         }
+        Console.WriteLine($"DEBUG: Dashboard for user {userId}");
+        Console.WriteLine($"DEBUG: Current time: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+
+        // Clear any cached entities to ensure we get fresh data from database
+        _context.ChangeTracker.Clear();
 
         // Fetch accounts
         var accounts = await _context.Accounts
@@ -59,7 +69,7 @@ public class DashboardController : ControllerBase
 
         // Calculate budget overview and allocation data
         var budgetOverview = CalculateBudgetOverview(user, budgetCategories);
-        var budgetCategoriesWithAllocation = CalculateBudgetAllocations(budgetCategories);
+        var budgetCategoriesWithAllocation = await CalculateBudgetAllocationsAsync(budgetCategories);
 
         var dashboardResponse = new DashboardResponse
         {
@@ -73,6 +83,35 @@ public class DashboardController : ControllerBase
         return Ok(dashboardResponse);
     }
 
+    [HttpGet("complete-overview")]
+    public async Task<ActionResult<DashboardOverviewResponseDto>> GetCompleteOverview()
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
+        var overview = await _dashboardService.GetCompleteOverviewAsync(userId);
+        return Ok(overview);
+    }
+
+    [HttpGet("category/{categoryId}/expenses")]
+    public async Task<ActionResult<ExpenseWithCategoryDto[]>> GetCategoryExpenses(
+        Guid categoryId, 
+        [FromQuery] int? year = null, 
+        [FromQuery] int? month = null)
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
+        var expenses = await _dashboardService.GetCategoryExpensesAsync(userId, categoryId, year, month);
+        return Ok(expenses);
+    }
+
     [HttpGet("classification-health")]
     public async Task<ActionResult<BudgetHealthByClassification>> GetClassificationHealth()
     {
@@ -84,6 +123,32 @@ public class DashboardController : ControllerBase
 
         var healthData = await _classificationService.CalculateBudgetHealthByClassificationAsync(userId);
         return Ok(healthData);
+    }
+
+    [HttpGet("budget-health")]
+    public async Task<ActionResult<OverallBudgetHealthDto>> GetBudgetHealth()
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
+        var budgetHealth = await _budgetCalculationService.GetOverallBudgetHealthAsync(userId);
+        return Ok(budgetHealth);
+    }
+
+    [HttpGet("monthly-progress")]
+    public async Task<ActionResult<MonthlyProgressDataDto[]>> GetMonthlyProgress()
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
+        var progressData = await _budgetCalculationService.GetMonthlyProgressDataAsync(userId);
+        return Ok(progressData);
     }
 
     private static string CalculateHealthStatus(decimal totalNetWorth)
@@ -119,17 +184,75 @@ public class DashboardController : ControllerBase
         };
     }
 
-    private List<BudgetCategoryWithAllocation> CalculateBudgetAllocations(List<BudgetCategory> budgetCategories)
+    private async Task<List<BudgetCategoryWithAllocation>> CalculateBudgetAllocationsAsync(List<BudgetCategory> budgetCategories)
     {
+        var userId = budgetCategories.FirstOrDefault()?.UserId;
+        if (string.IsNullOrEmpty(userId))
+        {
+            return budgetCategories.Select(category => new BudgetCategoryWithAllocation
+            {
+                CategoryId = category.CategoryId,
+                Name = category.Name,
+                MonthlyLimit = category.MonthlyLimit,
+                CurrentSpending = 0m,
+                IsEssential = category.IsEssential,
+                Description = category.Description,
+                ColorId = category.ColorId,
+                IconId = category.IconId,
+                AllocationPercentage = 0,
+                RemainingAmount = category.MonthlyLimit,
+                HealthStatus = "excellent"
+            }).ToList();
+        }
+
+        // Calculate spending for current month for all categories at once
+        var now = DateTime.Today; // Use Today to avoid time component issues
+        var startOfMonth = new DateTime(now.Year, now.Month, 1);
+        var endOfMonth = startOfMonth.AddMonths(1); // First day of next month
+        
+        Console.WriteLine($"Debug: Calculating spending for userId: {userId}, from {startOfMonth:yyyy-MM-dd} to {endOfMonth:yyyy-MM-dd}");
+        Console.WriteLine($"Debug: Total budget categories: {budgetCategories.Count}");
+        
+        // First, get all expenses for debugging
+        var allUserExpenses = await _context.Expenses
+            .Where(e => e.UserId == userId)
+            .Select(e => new { e.CategoryId, e.Amount, e.ExpenseDate })
+            .ToListAsync();
+            
+        Console.WriteLine($"Debug: Total expenses for user: {allUserExpenses.Count}");
+        foreach (var exp in allUserExpenses)
+        {
+            Console.WriteLine($"Debug: Expense - CategoryId: {exp.CategoryId}, Amount: {exp.Amount}, Date: {exp.ExpenseDate:yyyy-MM-dd}");
+        }
+        
+        var categorySpending = await _context.Expenses
+            .Where(e => e.UserId == userId && 
+                       e.ExpenseDate >= startOfMonth && 
+                       e.ExpenseDate < endOfMonth)
+            .GroupBy(e => e.CategoryId)
+            .Select(g => new { CategoryId = g.Key, TotalSpending = g.Sum(e => e.Amount) })
+            .ToDictionaryAsync(x => x.CategoryId, x => x.TotalSpending);
+            
+        Console.WriteLine($"Debug: Found spending data for {categorySpending.Count} categories");
+        foreach (var spending in categorySpending)
+        {
+            Console.WriteLine($"Debug: Category {spending.Key}: ${spending.Value}");
+        }
+
         return budgetCategories.Select(category =>
         {
-            // For now, CurrentSpending is 0 since we don't have spending tracking yet
-            var currentSpending = 0m;
+            var currentSpending = categorySpending.GetValueOrDefault(category.CategoryId, 0m);
             var remainingAmount = category.MonthlyLimit - currentSpending;
             var allocationPercentage = category.MonthlyLimit > 0 
                 ? Math.Min((currentSpending / category.MonthlyLimit) * 100, 100)
                 : 0;
             var healthStatus = CalculateCategoryHealthStatus(currentSpending, category.MonthlyLimit);
+
+            Console.WriteLine($"Debug: Category '{category.Name}' (ID: {category.CategoryId}):");
+            Console.WriteLine($"  - Monthly Limit: ${category.MonthlyLimit}");
+            Console.WriteLine($"  - Current Spending: ${currentSpending}");
+            Console.WriteLine($"  - Remaining: ${remainingAmount}");
+            Console.WriteLine($"  - Health Status: {healthStatus}");
 
             return new BudgetCategoryWithAllocation
             {
@@ -139,6 +262,8 @@ public class DashboardController : ControllerBase
                 CurrentSpending = currentSpending,
                 IsEssential = category.IsEssential,
                 Description = category.Description,
+                ColorId = category.ColorId,
+                IconId = category.IconId,
                 AllocationPercentage = allocationPercentage,
                 RemainingAmount = remainingAmount,
                 HealthStatus = healthStatus

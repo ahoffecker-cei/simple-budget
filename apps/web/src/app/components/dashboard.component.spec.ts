@@ -55,6 +55,8 @@ describe('DashboardComponent', () => {
         currentSpending: 0,
         isEssential: true,
         description: 'Rent and utilities',
+        colorId: 'blue',
+        iconId: 'home',
         allocationPercentage: 0,
         remainingAmount: 1500,
         healthStatus: 'excellent'

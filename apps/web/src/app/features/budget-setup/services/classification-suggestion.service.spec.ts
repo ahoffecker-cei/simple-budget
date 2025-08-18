@@ -37,6 +37,8 @@ describe('ClassificationSuggestionService', () => {
     monthlyLimit: 500,
     isEssential: true,
     description: 'Food essentials',
+    colorId: 'green',
+    iconId: 'local_grocery_store',
     createdAt: '2024-01-01T00:00:00Z'
   };
 
@@ -153,7 +155,14 @@ describe('ClassificationSuggestionService', () => {
     const req = httpMock.expectOne(`${environment.apiBaseUrl}/dashboard/classification-health`);
     req.flush(mockHealth);
 
-    expect(receivedHealth).toEqual(mockHealth);
+    expect(receivedHealth).toEqual(jasmine.objectContaining({
+      essentialSpending: 400,
+      essentialLimit: 1500,
+      nonEssentialSpending: 150,
+      nonEssentialLimit: 500,
+      essentialHealthStatus: 'good',
+      nonEssentialHealthStatus: 'excellent'
+    }));
   });
 
   it('should load classification health', () => {

@@ -12,6 +12,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatChipsModule } from '@angular/material/chips';
 import { BudgetCategoriesService } from '../services/budget-categories.service';
 import { BudgetCalculationUtils } from '../services/budget-calculation.utils';
+import { CategoryColorIconPickerComponent } from '../components/category-color-icon-picker.component';
 import { BudgetCategory, UpdateBudgetCategoryRequest, BudgetValidationResult } from '../../../../../../../shared/src/models';
 
 export interface EditCategoryDialogData {
@@ -33,7 +34,8 @@ export interface EditCategoryDialogData {
     MatIconModule,
     MatSlideToggleModule,
     MatProgressSpinnerModule,
-    MatChipsModule
+    MatChipsModule,
+    CategoryColorIconPickerComponent
   ],
   template: `
     <div class="dialog-container">
@@ -106,6 +108,15 @@ export interface EditCategoryDialogData {
                       maxlength="500"></textarea>
             <mat-hint>{{ categoryForm.get('description')?.value?.length || 0 }}/500</mat-hint>
           </mat-form-field>
+
+          <!-- Color and Icon Picker -->
+          <div class="customization-section">
+            <h4>Appearance</h4>
+            <app-category-color-icon-picker 
+              formControlName="customization"
+              [categoryName]="categoryForm.get('name')?.value">
+            </app-category-color-icon-picker>
+          </div>
 
           <!-- Budget Validation Feedback -->
           <div *ngIf="validationResult" class="validation-feedback" 
@@ -180,7 +191,11 @@ export class EditCategoryDialogComponent implements OnInit, OnDestroy {
       name: [category.name, [Validators.required, Validators.maxLength(100)]],
       monthlyLimit: [category.monthlyLimit, [Validators.required, Validators.min(0.01), Validators.max(this.data.userIncome)]],
       isEssential: [category.isEssential],
-      description: [category.description || '', [Validators.maxLength(500)]]
+      description: [category.description || '', [Validators.maxLength(500)]],
+      customization: [{
+        colorId: category.colorId || 'blue',
+        iconId: category.iconId || 'home'
+      }]
     });
   }
 
@@ -225,7 +240,9 @@ export class EditCategoryDialogComponent implements OnInit, OnDestroy {
     return formValue.name !== category.name ||
            formValue.monthlyLimit !== category.monthlyLimit ||
            formValue.isEssential !== category.isEssential ||
-           (formValue.description || '') !== (category.description || '');
+           (formValue.description || '') !== (category.description || '') ||
+           formValue.customization?.colorId !== (category.colorId || 'blue') ||
+           formValue.customization?.iconId !== (category.iconId || 'home');
   }
 
   private validateCategoryName(name: string): void {
@@ -302,7 +319,9 @@ export class EditCategoryDialogComponent implements OnInit, OnDestroy {
       name: formValue.name.trim(),
       monthlyLimit: formValue.monthlyLimit,
       isEssential: formValue.isEssential,
-      description: formValue.description?.trim() || undefined
+      description: formValue.description?.trim() || undefined,
+      colorId: formValue.customization?.colorId,
+      iconId: formValue.customization?.iconId
     };
 
     this.budgetCategoriesService.updateBudgetCategory(this.data.category.categoryId, request)

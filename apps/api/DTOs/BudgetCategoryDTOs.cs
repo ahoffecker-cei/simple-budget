@@ -10,6 +10,8 @@ public class BudgetCategoryDto
     public decimal MonthlyLimit { get; set; }
     public bool IsEssential { get; set; }
     public string? Description { get; set; }
+    public string ColorId { get; set; } = "blue";
+    public string IconId { get; set; } = "home";
     public DateTime CreatedAt { get; set; }
 }
 
@@ -28,6 +30,12 @@ public class CreateBudgetCategoryRequest
     
     [StringLength(500)]
     public string? Description { get; set; }
+    
+    [StringLength(50)]
+    public string? ColorId { get; set; }
+    
+    [StringLength(50)]
+    public string? IconId { get; set; }
 }
 
 public class UpdateBudgetCategoryRequest
@@ -45,6 +53,12 @@ public class UpdateBudgetCategoryRequest
     
     [StringLength(500)]
     public string? Description { get; set; }
+    
+    [StringLength(50)]
+    public string? ColorId { get; set; }
+    
+    [StringLength(50)]
+    public string? IconId { get; set; }
 }
 
 public class BudgetCategoryWithSpendingDto
@@ -54,6 +68,8 @@ public class BudgetCategoryWithSpendingDto
     public decimal MonthlyLimit { get; set; }
     public bool IsEssential { get; set; }
     public string? Description { get; set; }
+    public string ColorId { get; set; } = "blue";
+    public string IconId { get; set; } = "home";
     public decimal CurrentSpending { get; set; }
     public decimal RemainingBudget { get; set; }
 }

@@ -27,6 +27,12 @@ public class BudgetCategory
     [StringLength(500)]
     public string? Description { get; set; }
     
+    [StringLength(50)]
+    public string ColorId { get; set; } = "blue";
+    
+    [StringLength(50)]
+    public string IconId { get; set; } = "home";
+    
     [Required]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     

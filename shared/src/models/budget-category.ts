@@ -5,6 +5,8 @@ export interface BudgetCategory {
   monthlyLimit: number;
   isEssential: boolean;
   description?: string;
+  colorId: string;
+  iconId: string;
   createdAt: string;
 }
 
@@ -13,6 +15,8 @@ export interface CreateBudgetCategoryRequest {
   monthlyLimit: number;
   isEssential: boolean;
   description?: string;
+  colorId?: string;
+  iconId?: string;
 }
 
 export interface UpdateBudgetCategoryRequest {
@@ -20,6 +24,8 @@ export interface UpdateBudgetCategoryRequest {
   monthlyLimit: number;
   isEssential: boolean;
   description?: string;
+  colorId?: string;
+  iconId?: string;
 }
 
 export interface BudgetCategoryWithSpending {
@@ -28,6 +34,8 @@ export interface BudgetCategoryWithSpending {
   monthlyLimit: number;
   isEssential: boolean;
   description?: string;
+  colorId: string;
+  iconId: string;
   currentSpending: number;
   remainingBudget: number;
 }

@@ -13,6 +13,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Account> Accounts { get; set; }
     public DbSet<StudentLoan> StudentLoans { get; set; }
     public DbSet<BudgetCategory> BudgetCategories { get; set; }
+    public DbSet<Expense> Expenses { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -71,6 +72,23 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             
             // Add unique constraint for Name per User
             entity.HasIndex(e => new { e.UserId, e.Name }).IsUnique();
+        });
+        
+        // Configure Expense entity
+        modelBuilder.Entity<Expense>(entity =>
+        {
+            entity.HasKey(e => e.ExpenseId);
+            entity.Property(e => e.ExpenseId).ValueGeneratedOnAdd();
+            entity.Property(e => e.Amount).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Description).HasMaxLength(500);
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.BudgetCategory)
+                .WithMany()
+                .HasForeignKey(e => e.CategoryId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

@@ -18,17 +18,20 @@ public class BudgetCategoriesController : ControllerBase
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IBudgetValidationService _budgetValidationService;
     private readonly ICategoryClassificationService _classificationService;
+    private readonly IDashboardService _dashboardService;
 
     public BudgetCategoriesController(
         ApplicationDbContext context,
         UserManager<ApplicationUser> userManager,
         IBudgetValidationService budgetValidationService,
-        ICategoryClassificationService classificationService)
+        ICategoryClassificationService classificationService,
+        IDashboardService dashboardService)
     {
         _context = context;
         _userManager = userManager;
         _budgetValidationService = budgetValidationService;
         _classificationService = classificationService;
+        _dashboardService = dashboardService;
     }
 
     [HttpGet]
@@ -52,6 +55,8 @@ public class BudgetCategoriesController : ControllerBase
                 MonthlyLimit = bc.MonthlyLimit,
                 IsEssential = bc.IsEssential,
                 Description = bc.Description,
+                ColorId = bc.ColorId,
+                IconId = bc.IconId,
                 CreatedAt = bc.CreatedAt
             })
             .ToListAsync();
@@ -78,6 +83,8 @@ public class BudgetCategoriesController : ControllerBase
                 MonthlyLimit = bc.MonthlyLimit,
                 IsEssential = bc.IsEssential,
                 Description = bc.Description,
+                ColorId = bc.ColorId,
+                IconId = bc.IconId,
                 CreatedAt = bc.CreatedAt
             })
             .FirstOrDefaultAsync();
@@ -128,11 +135,16 @@ public class BudgetCategoriesController : ControllerBase
             MonthlyLimit = request.MonthlyLimit,
             IsEssential = request.IsEssential,
             Description = request.Description,
+            ColorId = request.ColorId ?? "blue",
+            IconId = request.IconId ?? "home",
             CreatedAt = DateTime.UtcNow
         };
 
         _context.BudgetCategories.Add(budgetCategory);
         await _context.SaveChangesAsync();
+        
+        // Invalidate dashboard cache since budget data has changed
+        await _dashboardService.InvalidateDashboardCacheAsync(userId);
 
         var categoryDto = new BudgetCategoryDto
         {
@@ -142,6 +154,8 @@ public class BudgetCategoriesController : ControllerBase
             MonthlyLimit = budgetCategory.MonthlyLimit,
             IsEssential = budgetCategory.IsEssential,
             Description = budgetCategory.Description,
+            ColorId = budgetCategory.ColorId,
+            IconId = budgetCategory.IconId,
             CreatedAt = budgetCategory.CreatedAt
         };
 
@@ -194,8 +208,13 @@ public class BudgetCategoriesController : ControllerBase
         budgetCategory.MonthlyLimit = request.MonthlyLimit;
         budgetCategory.IsEssential = request.IsEssential;
         budgetCategory.Description = request.Description;
+        if (request.ColorId != null) budgetCategory.ColorId = request.ColorId;
+        if (request.IconId != null) budgetCategory.IconId = request.IconId;
 
         await _context.SaveChangesAsync();
+        
+        // Invalidate dashboard cache since budget data has changed
+        await _dashboardService.InvalidateDashboardCacheAsync(userId);
 
         var categoryDto = new BudgetCategoryDto
         {
@@ -205,6 +224,8 @@ public class BudgetCategoriesController : ControllerBase
             MonthlyLimit = budgetCategory.MonthlyLimit,
             IsEssential = budgetCategory.IsEssential,
             Description = budgetCategory.Description,
+            ColorId = budgetCategory.ColorId,
+            IconId = budgetCategory.IconId,
             CreatedAt = budgetCategory.CreatedAt
         };
 
@@ -233,6 +254,9 @@ public class BudgetCategoriesController : ControllerBase
 
         _context.BudgetCategories.Remove(budgetCategory);
         await _context.SaveChangesAsync();
+        
+        // Invalidate dashboard cache since budget data has changed
+        await _dashboardService.InvalidateDashboardCacheAsync(userId);
 
         return NoContent();
     }
@@ -269,6 +293,18 @@ public class BudgetCategoriesController : ControllerBase
         if (userIncome <= 0)
         {
             return BadRequest("User income must be set before getting category suggestions.");
+        }
+
+        // Check if user has student loans
+        var hasStudentLoans = await _context.StudentLoans
+            .AnyAsync(sl => sl.UserId == userId && sl.Status == LoanStatus.Active);
+
+        var studentLoanPayment = 0m;
+        if (hasStudentLoans)
+        {
+            studentLoanPayment = await _context.StudentLoans
+                .Where(sl => sl.UserId == userId && sl.Status == LoanStatus.Active)
+                .SumAsync(sl => sl.MonthlyPayment);
         }
 
         var suggestions = new List<CreateBudgetCategoryRequest>
@@ -331,6 +367,20 @@ public class BudgetCategoriesController : ControllerBase
             }
         };
 
+        // Add Student Loans category if user has active loans
+        if (hasStudentLoans && studentLoanPayment > 0)
+        {
+            suggestions.Insert(0, new CreateBudgetCategoryRequest
+            {
+                Name = "Student Loans",
+                MonthlyLimit = studentLoanPayment,
+                IsEssential = true,
+                Description = "Monthly student loan payments",
+                ColorId = "orange",
+                IconId = "school"
+            });
+        }
+
         // Filter out categories that user already has
         var existingCategoryNames = await _context.BudgetCategories
             .Where(bc => bc.UserId == userId)
@@ -387,6 +437,8 @@ public class BudgetCategoriesController : ControllerBase
                 MonthlyLimit = suggestion.MonthlyLimit,
                 IsEssential = suggestion.IsEssential,
                 Description = suggestion.Description,
+                ColorId = suggestion.ColorId ?? "blue",
+                IconId = suggestion.IconId ?? "home",
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -397,6 +449,9 @@ public class BudgetCategoriesController : ControllerBase
         {
             _context.BudgetCategories.AddRange(createdCategories);
             await _context.SaveChangesAsync();
+            
+            // Invalidate dashboard cache since budget data has changed
+            await _dashboardService.InvalidateDashboardCacheAsync(userId);
         }
 
         var categoryDtos = createdCategories.Select(bc => new BudgetCategoryDto
@@ -407,6 +462,8 @@ public class BudgetCategoriesController : ControllerBase
             MonthlyLimit = bc.MonthlyLimit,
             IsEssential = bc.IsEssential,
             Description = bc.Description,
+            ColorId = bc.ColorId,
+            IconId = bc.IconId,
             CreatedAt = bc.CreatedAt
         }).ToList();
 
@@ -437,6 +494,9 @@ public class BudgetCategoriesController : ControllerBase
 
         budgetCategory.IsEssential = request.IsEssential;
         await _context.SaveChangesAsync();
+        
+        // Invalidate dashboard cache since budget data has changed
+        await _dashboardService.InvalidateDashboardCacheAsync(userId);
 
         var categoryDto = new BudgetCategoryDto
         {
@@ -446,6 +506,8 @@ public class BudgetCategoriesController : ControllerBase
             MonthlyLimit = budgetCategory.MonthlyLimit,
             IsEssential = budgetCategory.IsEssential,
             Description = budgetCategory.Description,
+            ColorId = budgetCategory.ColorId,
+            IconId = budgetCategory.IconId,
             CreatedAt = budgetCategory.CreatedAt
         };
 
@@ -516,6 +578,8 @@ public class BudgetCategoriesController : ControllerBase
                     MonthlyLimit = category.MonthlyLimit,
                     IsEssential = category.IsEssential,
                     Description = category.Description,
+                    ColorId = category.ColorId,
+                    IconId = category.IconId,
                     CreatedAt = category.CreatedAt
                 });
             }
@@ -524,6 +588,9 @@ public class BudgetCategoriesController : ControllerBase
         if (categories.Any())
         {
             await _context.SaveChangesAsync();
+            
+            // Invalidate dashboard cache since budget data has changed
+            await _dashboardService.InvalidateDashboardCacheAsync(userId);
         }
 
         return Ok(updatedCategories);

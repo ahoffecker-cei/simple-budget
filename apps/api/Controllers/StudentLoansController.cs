@@ -119,6 +119,9 @@ public class StudentLoansController : ControllerBase
         _context.StudentLoans.Add(loan);
         await _context.SaveChangesAsync();
 
+        // Automatically create or update the Student Loans budget category
+        await EnsureStudentLoansBudgetCategoryAsync(userId);
+
         var loanDto = new StudentLoanDto
         {
             Id = loan.Id.ToString(),
@@ -168,6 +171,9 @@ public class StudentLoansController : ControllerBase
 
         await _context.SaveChangesAsync();
 
+        // Update the Student Loans budget category after loan update
+        await EnsureStudentLoansBudgetCategoryAsync(userId);
+
         return NoContent();
     }
 
@@ -188,7 +194,59 @@ public class StudentLoansController : ControllerBase
         _context.StudentLoans.Remove(loan);
         await _context.SaveChangesAsync();
 
+        // Update the Student Loans budget category after loan deletion
+        await EnsureStudentLoansBudgetCategoryAsync(userId);
+
         return NoContent();
+    }
+
+    private async Task EnsureStudentLoansBudgetCategoryAsync(string userId)
+    {
+        const string categoryName = "Student Loans";
+        
+        // Calculate total monthly payment from all active loans
+        var totalMonthlyPayment = await _context.StudentLoans
+            .Where(l => l.UserId == userId && l.Status == LoanStatus.Active)
+            .SumAsync(l => l.MonthlyPayment);
+
+        // Check if Student Loans budget category already exists
+        var existingCategory = await _context.BudgetCategories
+            .FirstOrDefaultAsync(bc => bc.UserId == userId && bc.Name == categoryName);
+
+        if (existingCategory != null)
+        {
+            // Update existing category with new total
+            if (totalMonthlyPayment > 0)
+            {
+                existingCategory.MonthlyLimit = totalMonthlyPayment;
+                await _context.SaveChangesAsync();
+            }
+            else
+            {
+                // Remove category if no active loans
+                _context.BudgetCategories.Remove(existingCategory);
+                await _context.SaveChangesAsync();
+            }
+        }
+        else if (totalMonthlyPayment > 0)
+        {
+            // Create new Student Loans category
+            var studentLoanCategory = new BudgetCategory
+            {
+                CategoryId = Guid.NewGuid(),
+                UserId = userId,
+                Name = categoryName,
+                MonthlyLimit = totalMonthlyPayment,
+                IsEssential = true, // Student loans are essential payments
+                Description = "Monthly student loan payments",
+                ColorId = "orange", // Use orange color for debt
+                IconId = "school", // Use school icon
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _context.BudgetCategories.Add(studentLoanCategory);
+            await _context.SaveChangesAsync();
+        }
     }
 }
 

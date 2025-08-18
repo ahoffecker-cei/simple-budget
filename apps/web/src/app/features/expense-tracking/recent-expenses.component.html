@@ -1,0 +1,162 @@
+<mat-card class="recent-expenses-card">
+  <mat-card-header>
+    <mat-card-title>{{ title }}</mat-card-title>
+    <mat-card-subtitle *ngIf="expenses.length > 0">
+      {{ expenses.length }} expense{{ expenses.length !== 1 ? 's' : '' }} - 
+      Total: {{ formatCurrency(getSpendingSummary().total) }}
+    </mat-card-subtitle>
+    <div class="header-actions" *ngIf="showActions">
+      <button 
+        mat-icon-button 
+        (click)="refresh()" 
+        matTooltip="Refresh expenses"
+        [disabled]="isLoading">
+        <mat-icon>refresh</mat-icon>
+      </button>
+    </div>
+  </mat-card-header>
+
+  <mat-card-content>
+    <!-- Loading State -->
+    <div *ngIf="isLoading" class="loading-container">
+      <mat-spinner diameter="40"></mat-spinner>
+      <p>Loading expenses...</p>
+    </div>
+
+    <!-- Empty State -->
+    <div *ngIf="!isLoading && expenses.length === 0" class="empty-state">
+      <mat-icon class="empty-icon">receipt_long</mat-icon>
+      <h3>No expenses found</h3>
+      <p *ngIf="!categoryFilter">Start tracking your spending by logging your first expense.</p>
+      <p *ngIf="categoryFilter">No expenses found for this category yet.</p>
+    </div>
+
+    <!-- Expenses List -->
+    <div *ngIf="!isLoading && expenses.length > 0" class="expenses-container">
+      <!-- Group by date if many expenses -->
+      <div *ngIf="expenses.length > 5">
+        <div *ngFor="let dateGroup of getExpensesByDate() | keyvalue" class="date-group">
+          <div class="date-header">
+            <h4 class="date-label">{{ formatDate(dateGroup.value[0].expenseDate) }}</h4>
+            <span class="date-total">
+              {{ formatCurrency(getDateGroupTotal(dateGroup.value)) }}
+            </span>
+          </div>
+          
+          <div class="expenses-list">
+            <div 
+              *ngFor="let expense of dateGroup.value; trackBy: trackByExpenseId" 
+              class="expense-item"
+              [class.duplicate-warning]="isDuplicate(expense.expenseId)">
+              
+              <div class="expense-main-info">
+                <div class="expense-amount">{{ formatCurrency(expense.amount) }}</div>
+                <div class="expense-details">
+                  <div class="expense-category">
+                    <span class="category-name">{{ expense.categoryName }}</span>
+                    <mat-chip 
+                      [class]="getCategoryChipClass(expense.isEssential)"
+                      class="category-chip">
+                      {{ getCategoryChipLabel(expense.isEssential) }}
+                    </mat-chip>
+                  </div>
+                  <div class="expense-description" *ngIf="expense.description">
+                    {{ expense.description }}
+                  </div>
+                  <div class="expense-time">
+                    {{ formatDateTime(expense.createdAt) }}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Duplicate Warning -->
+              <div *ngIf="isDuplicate(expense.expenseId)" class="duplicate-indicator">
+                <mat-icon matTooltip="Potential duplicate expense">warning</mat-icon>
+              </div>
+
+              <!-- Actions Menu -->
+              <div class="expense-actions" *ngIf="showActions">
+                <button mat-icon-button [matMenuTriggerFor]="expenseMenu">
+                  <mat-icon>more_vert</mat-icon>
+                </button>
+                <mat-menu #expenseMenu="matMenu">
+                  <button mat-menu-item (click)="deleteExpense(expense)">
+                    <mat-icon>delete</mat-icon>
+                    <span>Delete</span>
+                  </button>
+                </mat-menu>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Simple list for fewer expenses -->
+      <div *ngIf="expenses.length <= 5" class="expenses-list">
+        <div 
+          *ngFor="let expense of expenses; trackBy: trackByExpenseId" 
+          class="expense-item"
+          [class.duplicate-warning]="isDuplicate(expense.expenseId)">
+          
+          <div class="expense-main-info">
+            <div class="expense-amount">{{ formatCurrency(expense.amount) }}</div>
+            <div class="expense-details">
+              <div class="expense-category">
+                <span class="category-name">{{ expense.categoryName }}</span>
+                <mat-chip 
+                  [class]="getCategoryChipClass(expense.isEssential)"
+                  class="category-chip">
+                  {{ getCategoryChipLabel(expense.isEssential) }}
+                </mat-chip>
+              </div>
+              <div class="expense-description" *ngIf="expense.description">
+                {{ expense.description }}
+              </div>
+              <div class="expense-meta">
+                <span class="expense-date">{{ formatDate(expense.expenseDate) }}</span>
+                <span class="expense-time">{{ formatDateTime(expense.createdAt) }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Duplicate Warning -->
+          <div *ngIf="isDuplicate(expense.expenseId)" class="duplicate-indicator">
+            <mat-icon matTooltip="Potential duplicate expense">warning</mat-icon>
+          </div>
+
+          <!-- Actions Menu -->
+          <div class="expense-actions" *ngIf="showActions">
+            <button mat-icon-button [matMenuTriggerFor]="expenseMenu">
+              <mat-icon>more_vert</mat-icon>
+            </button>
+            <mat-menu #expenseMenu="matMenu">
+              <button mat-menu-item (click)="deleteExpense(expense)">
+                <mat-icon>delete</mat-icon>
+                <span>Delete</span>
+              </button>
+            </mat-menu>
+          </div>
+        </div>
+      </div>
+
+      <!-- Summary Information -->
+      <div *ngIf="expenses.length > 1" class="expenses-summary">
+        <mat-divider></mat-divider>
+        <div class="summary-content">
+          <div class="summary-item">
+            <span class="label">Total Spending:</span>
+            <span class="value">{{ formatCurrency(getSpendingSummary().total) }}</span>
+          </div>
+          <div class="summary-item">
+            <span class="label">Average per expense:</span>
+            <span class="value">{{ formatCurrency(getSpendingSummary().total / expenses.length) }}</span>
+          </div>
+          <div class="summary-item" *ngIf="duplicateExpenses.size > 0">
+            <span class="label warning-text">Potential duplicates:</span>
+            <span class="value warning-text">{{ duplicateExpenses.size }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </mat-card-content>
+</mat-card>

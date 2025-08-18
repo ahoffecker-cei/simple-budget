@@ -3,16 +3,21 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Http;
 using System.Security.Claims;
+using Moq;
 using api.Controllers;
 using api.Data;
 using api.Models;
 using api.DTOs;
+using api.Services;
 
 namespace api.Tests.Controllers;
 
 public class DashboardControllerTests : IDisposable
 {
     private readonly ApplicationDbContext _context;
+    private readonly Mock<ICategoryClassificationService> _mockClassificationService;
+    private readonly Mock<IBudgetCalculationService> _mockBudgetCalculationService;
+    private readonly Mock<IDashboardService> _mockDashboardService;
     private readonly DashboardController _controller;
     private readonly string _testUserId = "test-user-id";
 
@@ -23,7 +28,10 @@ public class DashboardControllerTests : IDisposable
             .Options;
         
         _context = new ApplicationDbContext(options);
-        _controller = new DashboardController(_context);
+        _mockClassificationService = new Mock<ICategoryClassificationService>();
+        _mockBudgetCalculationService = new Mock<IBudgetCalculationService>();
+        _mockDashboardService = new Mock<IDashboardService>();
+        _controller = new DashboardController(_context, _mockClassificationService.Object, _mockBudgetCalculationService.Object, _mockDashboardService.Object);
 
         // Set up test user context
         var user = new ClaimsPrincipal(new ClaimsIdentity(new Claim[]
@@ -182,7 +190,7 @@ public class DashboardControllerTests : IDisposable
     public async Task GetDashboard_UnauthorizedUser_ReturnsUnauthorized()
     {
         // Arrange - Create controller without user context
-        var controller = new DashboardController(_context);
+        var controller = new DashboardController(_context, _mockClassificationService.Object, _mockBudgetCalculationService.Object, _mockDashboardService.Object);
         controller.ControllerContext = new ControllerContext()
         {
             HttpContext = new DefaultHttpContext()
@@ -190,6 +198,110 @@ public class DashboardControllerTests : IDisposable
 
         // Act
         var result = await controller.GetDashboard();
+
+        // Assert
+        Assert.IsType<UnauthorizedResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task GetCompleteOverview_ValidUser_ReturnsCompleteOverview()
+    {
+        // Arrange
+        var expectedOverview = new DashboardOverviewResponseDto
+        {
+            OverallHealthStatus = "excellent",
+            OverallHealthMessage = "You're doing fantastic!",
+            TotalNetWorth = 50000m,
+            Accounts = new List<AccountDto>(),
+            BudgetSummary = new List<BudgetCategorySummaryDto>(),
+            RecentExpenses = new List<ExpenseWithCategoryDto>(),
+            MonthlyProgress = new MonthlyProgressSummaryDto()
+        };
+
+        _mockDashboardService
+            .Setup(s => s.GetCompleteOverviewAsync(_testUserId))
+            .ReturnsAsync(expectedOverview);
+
+        // Act
+        var result = await _controller.GetCompleteOverview();
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result.Result);
+        var overview = Assert.IsAssignableFrom<DashboardOverviewResponseDto>(okResult.Value);
+        
+        Assert.Equal("excellent", overview.OverallHealthStatus);
+        Assert.Equal("You're doing fantastic!", overview.OverallHealthMessage);
+        Assert.Equal(50000m, overview.TotalNetWorth);
+        
+        _mockDashboardService.Verify(s => s.GetCompleteOverviewAsync(_testUserId), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetCompleteOverview_UnauthorizedUser_ReturnsUnauthorized()
+    {
+        // Arrange - Create controller without user context
+        var controller = new DashboardController(_context, _mockClassificationService.Object, _mockBudgetCalculationService.Object, _mockDashboardService.Object);
+        controller.ControllerContext = new ControllerContext()
+        {
+            HttpContext = new DefaultHttpContext()
+        };
+
+        // Act
+        var result = await controller.GetCompleteOverview();
+
+        // Assert
+        Assert.IsType<UnauthorizedResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task GetCategoryExpenses_ValidRequest_ReturnsCategoryExpenses()
+    {
+        // Arrange
+        var categoryId = Guid.NewGuid();
+        var expectedExpenses = new ExpenseWithCategoryDto[]
+        {
+            new ExpenseWithCategoryDto
+            {
+                ExpenseId = Guid.NewGuid(),
+                Amount = 50.00m,
+                Description = "Test expense",
+                CategoryName = "Test Category",
+                CategoryId = categoryId,
+                IsEssential = true
+            }
+        };
+
+        _mockDashboardService
+            .Setup(s => s.GetCategoryExpensesAsync(_testUserId, categoryId, null, null))
+            .ReturnsAsync(expectedExpenses);
+
+        // Act
+        var result = await _controller.GetCategoryExpenses(categoryId);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result.Result);
+        var expenses = Assert.IsAssignableFrom<ExpenseWithCategoryDto[]>(okResult.Value);
+        
+        Assert.Single(expenses);
+        Assert.Equal(categoryId, expenses[0].CategoryId);
+        Assert.Equal("Test Category", expenses[0].CategoryName);
+        Assert.Equal(50.00m, expenses[0].Amount);
+        
+        _mockDashboardService.Verify(s => s.GetCategoryExpensesAsync(_testUserId, categoryId, null, null), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetCategoryExpenses_UnauthorizedUser_ReturnsUnauthorized()
+    {
+        // Arrange - Create controller without user context
+        var controller = new DashboardController(_context, _mockClassificationService.Object, _mockBudgetCalculationService.Object, _mockDashboardService.Object);
+        controller.ControllerContext = new ControllerContext()
+        {
+            HttpContext = new DefaultHttpContext()
+        };
+
+        // Act
+        var result = await controller.GetCategoryExpenses(Guid.NewGuid());
 
         // Assert
         Assert.IsType<UnauthorizedResult>(result.Result);

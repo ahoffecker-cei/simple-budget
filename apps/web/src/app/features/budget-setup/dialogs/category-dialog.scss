@@ -85,6 +85,20 @@ mat-dialog-content {
       line-height: 1.4;
     }
   }
+
+  .customization-section {
+    padding: 1rem;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    background-color: #f8f9fa;
+    
+    h4 {
+      margin: 0 0 1rem 0;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #333;
+    }
+  }
   
   mat-form-field {
     ::ng-deep {

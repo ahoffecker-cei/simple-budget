@@ -69,9 +69,14 @@ builder.Services.AddCors(options =>
     });
 });
 
+// Add memory caching
+builder.Services.AddMemoryCache();
+
 // Register application services
 builder.Services.AddScoped<IBudgetValidationService, BudgetValidationService>();
 builder.Services.AddScoped<ICategoryClassificationService, CategoryClassificationService>();
+builder.Services.AddScoped<IBudgetCalculationService, BudgetCalculationService>();
+builder.Services.AddScoped<IDashboardService, DashboardService>();
 
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi

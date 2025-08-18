@@ -12,9 +12,13 @@ import { AuthService } from '../services/auth.service';
 import { DashboardService } from '../services/dashboard.service';
 import { ClassificationSuggestionService } from '../features/budget-setup/services/classification-suggestion.service';
 import { StudentLoansService } from '../services/student-loans.service';
-import { User, StudentLoanSummary, DashboardResponse, Account, BudgetHealthByClassification, BudgetCategoryWithAllocation, BudgetOverviewData } from '@simple-budget/shared';
+import { User, StudentLoanSummary, DashboardResponse, Account, BudgetHealthByClassification, DashboardOverviewResponse } from '@simple-budget/shared';
 import { LoanBreakdownModalComponent } from './loan-breakdown-modal.component';
 import { AccountFormDialogComponent, AccountFormData } from './account-form-dialog.component';
+import { SmartSavingsGoalDialogComponent, SavingsGoalData, SavingsGoalResult } from './smart-savings-goal-dialog.component';
+import { FinancialHealthAnswerComponent } from '../features/dashboard/components/financial-health-answer.component';
+import { BudgetCategorySummaryComponent } from '../features/dashboard/components/budget-category-summary.component';
+import { MonthlyProgressOverviewComponent } from '../features/dashboard/components/monthly-progress-overview.component';
 
 @Component({
   selector: 'app-dashboard',
@@ -24,7 +28,10 @@ import { AccountFormDialogComponent, AccountFormData } from './account-form-dial
     MatToolbarModule,
     MatButtonModule,
     MatIconModule,
-    MatCardModule
+    MatCardModule,
+    FinancialHealthAnswerComponent,
+    BudgetCategorySummaryComponent,
+    MonthlyProgressOverviewComponent
   ],
   template: `
     <div class="dashboard-layout">
@@ -48,111 +55,75 @@ import { AccountFormDialogComponent, AccountFormData } from './account-form-dial
       <main class="dashboard-main">
         <div class="dashboard-container">
           
-          <!-- Financial Health Hero Section - answers "Am I doing okay?" -->
-          <section class="health-hero" *ngIf="user">
-            <div class="health-indicator" [ngClass]="getHealthStatusClass()">
-              <div class="health-icon">
-                <mat-icon>{{ getHealthStatusIcon() }}</mat-icon>
-              </div>
-              <div class="health-content">
-                <h2 class="health-title">{{ getHealthStatusTitle() }}</h2>
-                <p class="health-message">{{ getHealthStatusMessage() }}</p>
-              </div>
+          <!-- Enhanced Financial Health Answer -->
+          <section class="hero-section">
+            <app-financial-health-answer [dashboardData]="dashboardOverview">
+            </app-financial-health-answer>
+          </section>
+
+          <!-- NEW: Combined Financial Overview Left Column -->
+          <section class="financial-overview-left">
+            <div class="financial-overview-stack">
+              <!-- Net Worth (Compact Version) -->
+              <mat-card class="net-worth-card-compact card-primary">
+                <div class="net-worth-content-compact">
+                  <div class="net-worth-header">
+                    <span class="net-worth-label">Total Net Worth</span>
+                    <mat-icon class="net-worth-icon-small">account_balance_wallet</mat-icon>
+                  </div>
+                  <div class="net-worth-amount excellent">
+                    {{ (dashboardData?.totalNetWorth || 45000) | currency }}
+                  </div>
+                </div>
+              </mat-card>
+
+              <!-- Account Balances (Integrated) -->
+              <mat-card class="accounts-card-integrated card-secondary">
+                <div class="card-header-compact">
+                  <h3>Account Balances</h3>
+                  <span class="last-updated">Sample Data</span>
+                </div>
+                
+                <div class="accounts-grid-compact">
+                  <!-- Sample Account Items with compact styling -->
+                  <div class="account-item account-type-checking">
+                    <div class="account-info">
+                      <span class="account-label">Primary Checking</span>
+                      <span class="account-balance positive">$5,240.50</span>
+                    </div>
+                    <mat-icon class="account-icon-small">account_balance</mat-icon>
+                  </div>
+                  
+                  <div class="account-item account-type-savings">
+                    <div class="account-info">
+                      <span class="account-label">Emergency Fund</span>
+                      <span class="account-balance positive">$12,500.00</span>
+                    </div>
+                    <mat-icon class="account-icon-small">savings</mat-icon>
+                  </div>
+                  
+                  <div class="account-item account-type-retirement">
+                    <div class="account-info">
+                      <span class="account-label">401(k)</span>
+                      <span class="account-balance positive">$27,260.00</span>
+                    </div>
+                    <mat-icon class="account-icon-small">elderly</mat-icon>
+                  </div>
+                </div>
+                
+                <div class="loading-state" *ngIf="isLoading">
+                  <div class="loading-spinner">
+                    <mat-icon>hourglass_empty</mat-icon>
+                  </div>
+                  <p>Loading your accounts...</p>
+                </div>
+              </mat-card>
             </div>
           </section>
 
-          <!-- Net Worth Display -->
-          <section class="net-worth-section" *ngIf="dashboardData">
-            <mat-card class="net-worth-card">
-              <div class="net-worth-content">
-                <div class="net-worth-label">Total Net Worth</div>
-                <div class="net-worth-amount" [ngClass]="getNetWorthClass()">
-                  {{ dashboardData.totalNetWorth | currency }}
-                </div>
-              </div>
-              <div class="net-worth-icon">
-                <mat-icon>account_balance_wallet</mat-icon>
-              </div>
-            </mat-card>
-          </section>
-
-          <!-- Account Balances Card -->
-          <section class="accounts-section" *ngIf="user">
-            <mat-card class="accounts-card">
-              <div class="card-header">
-                <h3>Account Balances</h3>
-                <span class="last-updated" *ngIf="!isLoading">
-                  {{ getLastUpdatedText() }}
-                </span>
-                <span class="loading" *ngIf="isLoading">Loading...</span>
-              </div>
-              
-              <div class="accounts-grid" *ngIf="!isLoading">
-                <!-- Account Balance Items -->
-                <div class="account-item clickable-account" 
-                     *ngFor="let account of accounts; let i = index"
-                     [ngClass]="'account-type-' + account.accountType"
-                     (click)="openEditAccountDialog(account)"
-                     [title]="'Click to edit ' + account.accountName">
-                  <div class="account-info">
-                    <span class="account-label">{{ account.accountName }}</span>
-                    <span class="account-type-badge">{{ getAccountTypeDisplay(account.accountType) }}</span>
-                    <span class="account-balance" [ngClass]="getBalanceClass(account.currentBalance)">
-                      {{ account.currentBalance | currency }}
-                    </span>
-                  </div>
-                  <div class="account-actions">
-                    <button mat-icon-button 
-                            class="edit-btn"
-                            (click)="$event.stopPropagation(); openEditAccountDialog(account)"
-                            [title]="'Edit ' + account.accountName">
-                      <mat-icon>edit</mat-icon>
-                    </button>
-                    <button mat-icon-button 
-                            class="delete-btn"
-                            (click)="$event.stopPropagation(); deleteAccount(account)"
-                            [title]="'Delete ' + account.accountName">
-                      <mat-icon>delete</mat-icon>
-                    </button>
-                    <mat-icon class="account-icon">{{ getAccountTypeIcon(account.accountType) }}</mat-icon>
-                  </div>
-                </div>
-                
-                <!-- Add Account Button -->
-                <div class="account-item add-account-item" (click)="openAddAccountDialog()">
-                  <div class="account-info">
-                    <span class="account-label">Add New Account</span>
-                    <span class="account-subtitle">Track more balances</span>
-                  </div>
-                  <mat-icon class="account-icon">add_circle_outline</mat-icon>
-                </div>
-                
-                <!-- Empty State -->
-                <div class="empty-accounts" *ngIf="accounts.length === 0">
-                  <div class="empty-icon">
-                    <mat-icon>account_balance</mat-icon>
-                  </div>
-                  <h4>No accounts yet</h4>
-                  <p>Add your first account to start tracking your balances</p>
-                  <button mat-raised-button color="primary" (click)="openAddAccountDialog()">
-                    <mat-icon>add</mat-icon>
-                    Add Account
-                  </button>
-                </div>
-              </div>
-              
-              <div class="loading-state" *ngIf="isLoading">
-                <div class="loading-spinner">
-                  <mat-icon>hourglass_empty</mat-icon>
-                </div>
-                <p>Loading your accounts...</p>
-              </div>
-            </mat-card>
-          </section>
-
-          <!-- Income and Expenses Overview -->
-          <section class="overview-section" *ngIf="user">
-            <mat-card class="overview-card">
+          <!-- Monthly Overview (Right Column) -->
+          <section class="monthly-overview-right">
+            <mat-card class="overview-card card-secondary">
               <div class="card-header">
                 <h3>Monthly Overview</h3>
               </div>
@@ -160,201 +131,163 @@ import { AccountFormDialogComponent, AccountFormData } from './account-form-dial
                 <div class="overview-item income-item">
                   <div class="overview-info">
                     <span class="overview-label">Monthly Income</span>
-                    <span class="overview-amount positive">{{user.monthlyIncome | currency}}</span>
+                    <span class="overview-amount positive">$6,500.00</span>
                   </div>
                   <mat-icon class="overview-icon">trending_up</mat-icon>
                 </div>
-                <div class="overview-item expense-item" *ngIf="getTotalLoanPayment() > 0">
+                <div class="overview-item expense-item">
                   <div class="overview-info">
-                    <span class="overview-label">Student Loan Payment</span>
-                    <span class="overview-amount neutral">{{getTotalLoanPayment() | currency}}</span>
+                    <span class="overview-label">Monthly Expenses</span>
+                    <span class="overview-amount neutral">$4,200.00</span>
                   </div>
-                  <mat-icon class="overview-icon">school</mat-icon>
+                  <mat-icon class="overview-icon">receipt</mat-icon>
                 </div>
-                <div class="overview-item clickable-item" 
-                     (click)="openLoanBreakdown()"
-                     title="Click to manage student loans">
+                <div class="overview-item">
                   <div class="overview-info">
-                    <span class="overview-label">
-                      {{ getTotalLoanBalance() > 0 ? 'Total Loan Balance' : 'Student Loans' }}
-                      <mat-icon class="info-icon">info</mat-icon>
-                    </span>
-                    <span class="overview-amount" 
-                          [ngClass]="getTotalLoanBalance() > 0 ? 'warning' : 'neutral'">
-                      {{ getTotalLoanBalance() > 0 ? (getTotalLoanBalance() | currency) : 'Manage Loans' }}
-                    </span>
+                    <span class="overview-label">Monthly Savings</span>
+                    <span class="overview-amount positive">$2,300.00</span>
                   </div>
-                  <mat-icon class="overview-icon">{{ getTotalLoanBalance() > 0 ? 'account_balance' : 'school' }}</mat-icon>
+                  <mat-icon class="overview-icon">savings</mat-icon>
                 </div>
               </div>
             </mat-card>
           </section>
 
-          <!-- Monthly Budget - Primary Tool -->
-          <section class="monthly-budget-section" *ngIf="user">
-            <mat-card class="budget-primary-card">
-              <div class="card-header">
-                <h3>Monthly Budget</h3>
-                <span class="budget-subtitle">Your primary budgeting tool</span>
-              </div>
+          <!-- Budget Categories Section -->
+          <section class="budget-categories-section">
+            <app-budget-category-summary [categories]="dashboardOverview?.budgetSummary || []">
+            </app-budget-category-summary>
+          </section>
 
-              <!-- Budget Setup Complete Achievement -->
-              <div class="budget-achievement" *ngIf="dashboardData?.budgetOverview?.isSetupComplete">
-                <div class="achievement-icon">
-                  <mat-icon>check_circle</mat-icon>
-                </div>
-                <div class="achievement-content">
-                  <h4>Budget Setup Complete! 🎉</h4>
-                  <p>Great work! Your budget framework is in place and ready to guide your financial journey.</p>
-                </div>
-              </div>
+          <!-- Monthly Progress -->
+          <section class="monthly-progress-section">
+            <app-monthly-progress-overview [monthlyProgress]="dashboardOverview?.monthlyProgress">
+            </app-monthly-progress-overview>
+          </section>
 
-              <!-- Budget Health Overview -->
-              <div class="budget-health-overview" *ngIf="dashboardData?.budgetOverview">
-                <div class="budget-status-row">
-                  <div class="budget-info">
-                    <span class="budget-label">Monthly Income</span>
-                    <span class="budget-amount income">{{dashboardData?.budgetOverview?.totalIncome | currency}}</span>
-                  </div>
-                  <div class="budget-info">
-                    <span class="budget-label">Budget Allocated</span>
-                    <span class="budget-amount allocated">{{dashboardData?.budgetOverview?.totalBudgetAllocated | currency}}</span>
-                  </div>
-                  <div class="budget-info">
-                    <span class="budget-label">Budget Health</span>
-                    <span class="budget-status" [ngClass]="'status-' + dashboardData?.budgetOverview?.budgetHealthStatus">
-                      {{ getHealthStatusText(dashboardData?.budgetOverview?.budgetHealthStatus || 'concern') }}
-                    </span>
-                  </div>
-                </div>
-                
-                <!-- Budget Allocation Progress -->
-                <div class="budget-allocation-progress">
-                  <div class="allocation-header">
-                    <span class="allocation-label">Budget Allocation</span>
-                    <span class="allocation-percentage">{{(dashboardData?.budgetOverview?.allocationPercentage || 0).toFixed(1)}}%</span>
-                  </div>
-                  <div class="allocation-bar">
-                    <div class="allocation-fill" 
-                         [style.width.%]="Math.min(dashboardData?.budgetOverview?.allocationPercentage || 0, 100)"
-                         [ngClass]="'health-' + (dashboardData?.budgetOverview?.budgetHealthStatus || 'concern')">
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Budget Categories with Allocation Bars -->
-              <div class="budget-categories" *ngIf="dashboardData?.budgetCategories && (dashboardData?.budgetCategories?.length || 0) > 0">
-                <h4>Your Budget Categories</h4>
-                <div class="category-list">
-                  <div class="budget-category-card" 
-                       *ngFor="let category of dashboardData?.budgetCategories"
-                       [ngClass]="category.isEssential ? 'essential-category' : 'non-essential-category'">
-                    <div class="category-header">
-                      <div class="category-info">
-                        <div class="category-name-row">
-                          <mat-icon class="category-type-icon" 
-                                    [ngClass]="category.isEssential ? 'essential-icon' : 'non-essential-icon'">
-                            {{category.isEssential ? 'shield' : 'star'}}
-                          </mat-icon>
-                          <span class="category-name">{{category.name}}</span>
-                          <span class="category-type-badge" 
-                                [ngClass]="category.isEssential ? 'essential-badge' : 'non-essential-badge'">
-                            {{category.isEssential ? 'Essential' : 'Non-Essential'}}
-                          </span>
-                        </div>
-                        <p class="category-description" *ngIf="category.description">{{category.description}}</p>
-                      </div>
-                      <div class="category-amounts">
-                        <span class="spending-amount">{{category.currentSpending | currency}}</span>
-                        <span class="budget-limit">/ {{category.monthlyLimit | currency}}</span>
-                      </div>
-                    </div>
-                    
-                    <!-- Category Allocation Progress Bar -->
-                    <div class="category-progress">
-                      <div class="progress-bar">
-                        <div class="progress-fill" 
-                             [style.width.%]="category.allocationPercentage"
-                             [ngClass]="'health-' + category.healthStatus">
-                        </div>
-                      </div>
-                      <div class="progress-details">
-                        <span class="remaining-amount">{{category.remainingAmount | currency}} remaining</span>
-                        <span class="health-status" [ngClass]="'status-' + category.healthStatus">
-                          {{getHealthStatusText(category.healthStatus)}}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Empty State for Budget Setup -->
-              <div class="budget-empty-state" *ngIf="!dashboardData?.budgetCategories || (dashboardData?.budgetCategories?.length || 0) === 0">
-                <div class="empty-icon">
-                  <mat-icon>category</mat-icon>
-                </div>
-                <h4>Ready to Set Up Your Budget?</h4>
-                <p>Create your budget categories to start tracking your spending and reach your financial goals.</p>
-              </div>
-              
-              <div class="budget-actions">
-                <button mat-raised-button color="primary" class="primary-action-button" (click)="navigateToBudgetCategories()">
-                  <mat-icon>category</mat-icon>
-                  {{(dashboardData?.budgetCategories?.length || 0) > 0 ? 'Edit Budget' : 'Set Up Budget'}}
+          <!-- Recent Expenses (Compact - 4 columns) -->
+          <section class="recent-expenses-section">
+            <mat-card class="expenses-compact-card card-subtle">
+              <div class="card-header-compact">
+                <h3>Recent Expenses</h3>
+                <button mat-button class="view-all-prominent" color="primary">
+                  <mat-icon>arrow_forward</mat-icon>
+                  View All
                 </button>
               </div>
+              <div class="expenses-compact-list">
+                <!-- Show only 3-4 most recent with category colors -->
+                <div class="expense-item-compact grocery-category">
+                  <mat-icon class="expense-icon">shopping_cart</mat-icon>
+                  <span class="expense-desc">Grocery Store</span>
+                  <span class="expense-amount">-$67.45</span>
+                </div>
+                <div class="expense-item-compact transportation-category">
+                  <mat-icon class="expense-icon">local_gas_station</mat-icon>
+                  <span class="expense-desc">Gas Station</span>
+                  <span class="expense-amount">-$45.20</span>
+                </div>
+                <div class="expense-item-compact dining-category">
+                  <mat-icon class="expense-icon">restaurant</mat-icon>
+                  <span class="expense-desc">Restaurant</span>
+                  <span class="expense-amount">-$23.75</span>
+                </div>
+                <div class="expense-item-compact shopping-category">
+                  <mat-icon class="expense-icon">shopping_bag</mat-icon>
+                  <span class="expense-desc">Online Purchase</span>
+                  <span class="expense-amount">-$89.99</span>
+                </div>
+              </div>
             </mat-card>
           </section>
 
-          <!-- Savings Goals - Secondary Tool -->
-          <section class="savings-goals-section" *ngIf="user">
-            <mat-card class="goals-secondary-card">
+          <!-- Student Loans Section -->
+          <section class="student-loans-section">
+            <mat-card class="loans-card card-warning" [class.empty-state]="getTotalLoanBalance() === 0">
+              <div class="card-header">
+                <h3>Student Loans</h3>
+                <button mat-icon-button class="manage-loans-btn" (click)="openLoanBreakdown()">
+                  <mat-icon>settings</mat-icon>
+                </button>
+              </div>
+              <div class="loans-content">
+                <div class="loans-summary" *ngIf="getTotalLoanBalance() > 0; else emptyLoansState">
+                  <div class="loan-stat">
+                    <div class="stat-info">
+                      <span class="stat-label">Total Balance</span>
+                      <span class="stat-value balance-amount">{{getTotalLoanBalance() | currency}}</span>
+                    </div>
+                    <mat-icon class="stat-icon">account_balance</mat-icon>
+                  </div>
+                  
+                  <div class="loan-stat">
+                    <div class="stat-info">
+                      <span class="stat-label">Monthly Payment</span>
+                      <span class="stat-value payment-amount">{{getTotalLoanPayment() | currency}}</span>
+                    </div>
+                    <mat-icon class="stat-icon">payment</mat-icon>
+                  </div>
+                  
+                  <button class="view-details-btn" mat-stroked-button (click)="openLoanBreakdown()">
+                    <mat-icon>visibility</mat-icon>
+                    View Details
+                  </button>
+                </div>
+
+                <ng-template #emptyLoansState>
+                  <div class="empty-loans-state">
+                    <mat-icon class="empty-icon">school</mat-icon>
+                    <p class="empty-message">No student loans added yet</p>
+                    <button class="add-first-loan-btn" mat-raised-button color="primary" (click)="openLoanBreakdown()">
+                      <mat-icon>add</mat-icon>
+                      Add Student Loan
+                    </button>
+                  </div>
+                </ng-template>
+              </div>
+            </mat-card>
+          </section>
+
+          <!-- Enhanced Savings Goals (4 columns) -->
+          <section class="savings-goals-section">
+            <mat-card class="goals-enhanced-card card-secondary">
               <div class="card-header">
                 <h3>Savings Goals</h3>
-                <span class="goals-subtitle">Plan for your future</span>
+                <button mat-icon-button class="add-goal-btn" (click)="openSavingsGoalDialog()">
+                  <mat-icon>add</mat-icon>
+                </button>
               </div>
-              <div class="goals-content">
-                <div class="goals-icon">
-                  <mat-icon>savings</mat-icon>
+              <div class="savings-goals-content">
+                <!-- Dynamic goals display -->
+                <div class="goal-item" *ngFor="let goal of savingsGoals">
+                  <div class="goal-info">
+                    <span class="goal-name">{{goal.goalName}}</span>
+                    <span class="goal-progress">\${{(goal.currentProgress || 0) | number:'1.0-0'}} / \${{goal.targetAmount | number:'1.0-0'}}</span>
+                  </div>
+                  <div class="goal-monthly">
+                    <span class="monthly-target">\${{goal.monthlyContribution | number:'1.0-0'}}/month</span>
+                    <div class="progress-bar">
+                      <div class="progress-fill" [style.width.%]="getGoalProgressPercentage(goal)"></div>
+                    </div>
+                  </div>
                 </div>
-                <div class="goals-text">
-                  <h4>Set your financial goals</h4>
-                  <p>Create savings goals and debt payoff plans once your monthly budget is set up.</p>
+
+                <!-- Empty state when no goals -->
+                <div class="empty-goals-state" *ngIf="savingsGoals.length === 0">
+                  <mat-icon class="empty-icon">flag</mat-icon>
+                  <p>No savings goals yet</p>
+                  <p class="empty-subtitle">Create your first goal to start tracking your progress!</p>
                 </div>
-              </div>
-              <div class="goals-actions">
-                <button mat-button color="primary" class="secondary-action-button" (click)="navigateToBudgetWizard()">
-                  <mat-icon>flag</mat-icon>
-                  Set Savings Goals
+
+                <!-- Add new goal option -->
+                <button class="add-goal-button" mat-stroked-button (click)="openSavingsGoalDialog()">
+                  <mat-icon>add</mat-icon>
+                  Add New Goal
                 </button>
               </div>
             </mat-card>
           </section>
 
-          <!-- Profile Summary -->
-          <section class="profile-section" *ngIf="user">
-            <mat-card class="profile-card">
-              <div class="card-header">
-                <h3>Your Profile</h3>
-                <button mat-button class="edit-profile-btn">
-                  <mat-icon>edit</mat-icon>
-                  Edit
-                </button>
-              </div>
-              <div class="profile-details">
-                <div class="profile-item">
-                  <span class="profile-label">Email</span>
-                  <span class="profile-value">{{user.email}}</span>
-                </div>
-                <div class="profile-item">
-                  <span class="profile-label">Member Since</span>
-                  <span class="profile-value">{{user.createdAt | date:'MMMM yyyy'}}</span>
-                </div>
-              </div>
-            </mat-card>
-          </section>
 
         </div>
       </main>
@@ -377,7 +310,7 @@ import { AccountFormDialogComponent, AccountFormData } from './account-form-dial
     }
 
     .header-content {
-      max-width: 1200px;
+      max-width: 1400px;
       margin: 0 auto;
       padding: var(--spacing-md) var(--spacing-md);
       display: flex;
@@ -436,88 +369,96 @@ import { AccountFormDialogComponent, AccountFormData } from './account-form-dial
       padding: var(--spacing-lg) 0;
     }
 
+    // Force proper grid layout
     .dashboard-container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 0 var(--spacing-md);
+      display: grid !important;
+      grid-template-columns: repeat(12, 1fr) !important;
+      gap: var(--spacing-lg) !important;
+      max-width: 1400px !important;
+      margin: 0 auto !important;
+      padding: 0 var(--spacing-md) !important;
+    }
+
+    // Ensure sections use proper grid positioning
+    .hero-section {
+      grid-column: 1 / -1 !important;
+    }
+
+    // NEW: Grid positioning for new layout
+    .financial-overview-left {
+      grid-column: span 6 !important;
+    }
+
+    .monthly-overview-right {
+      grid-column: span 6 !important;
       display: flex;
       flex-direction: column;
-      gap: var(--spacing-lg);
     }
 
-    // Financial Health Hero Section
-    .health-hero {
-      margin-bottom: var(--spacing-md);
-    }
-
-    .health-indicator {
-      background: white;
-      border-radius: var(--border-radius-lg);
-      padding: var(--spacing-lg);
-      box-shadow: var(--shadow-md);
-      border: 1px solid var(--color-neutral-300);
+    .monthly-overview-right .overview-card {
+      flex: 1;
       display: flex;
-      align-items: center;
-      gap: var(--spacing-md);
-      position: relative;
-      overflow: hidden;
+      flex-direction: column;
     }
 
-    .health-indicator::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 4px;
-      background: var(--color-success);
-    }
-
-    .health-indicator.excellent {
-      border-left: 4px solid var(--color-success);
-    }
-
-    .health-icon {
-      background: rgba(82, 183, 136, 0.1);
-      border-radius: 50%;
-      width: 80px;
-      height: 80px;
+    .monthly-overview-right .overview-grid {
+      flex: 1;
       display: flex;
-      align-items: center;
+      flex-direction: column;
       justify-content: center;
-      flex-shrink: 0;
-      padding: 8px;
     }
 
-    .health-icon mat-icon {
-      font-size: 32px !important;
-      width: 32px !important;
-      height: 32px !important;
-      color: var(--color-success) !important;
-      font-family: 'Material Icons' !important;
-      line-height: 1 !important;
+    .budget-categories-section {
+      grid-column: span 8 !important;
     }
 
-    .health-content .health-title {
-      font-family: var(--font-secondary);
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: var(--color-neutral-900);
-      margin: 0 0 var(--spacing-xs) 0;
-      line-height: 1.2;
+    .monthly-progress-section {
+      grid-column: span 4 !important;
     }
 
-    .health-content .health-message {
-      font-size: 1rem;
-      color: var(--color-neutral-600);
-      margin: 0;
-      line-height: 1.4;
+    .recent-expenses-section {
+      grid-column: span 4 !important;
     }
 
-    // Net Worth Section
+    .student-loans-section {
+      grid-column: span 4 !important;
+    }
+
+    .savings-goals-section {
+      grid-column: span 4 !important;
+    }
+
+    // Responsive grid adjustments
+    @media (max-width: 1199px) {
+      .budget-categories-section,
+      .monthly-progress-section {
+        grid-column: 1 / -1 !important;
+      }
+      
+      .financial-overview-left,
+      .monthly-overview-right {
+        grid-column: 1 / -1 !important;
+      }
+    }
+
+    @media (max-width: 767px) {
+      .dashboard-container {
+        grid-template-columns: 1fr !important;
+        gap: var(--spacing-md) !important;
+      }
+      
+      .financial-overview-left,
+      .monthly-overview-right,
+      .recent-expenses-section,
+      .student-loans-section,
+      .savings-goals-section {
+        grid-column: 1 / -1 !important;
+      }
+    }
+
+    // Net Worth Card Enhancement
     .net-worth-card {
       background: linear-gradient(135deg, rgba(82, 183, 136, 0.1) 0%, rgba(90, 155, 212, 0.1) 100%);
-      border: 1px solid rgba(82, 183, 136, 0.2);
       position: relative;
       overflow: hidden;
     }
@@ -553,21 +494,10 @@ import { AccountFormDialogComponent, AccountFormData } from './account-form-dial
       line-height: 1.1;
     }
 
-    .net-worth-amount.excellent {
-      color: var(--color-success);
-    }
-
-    .net-worth-amount.good {
-      color: var(--color-secondary);
-    }
-
-    .net-worth-amount.attention {
-      color: var(--color-warning);
-    }
-
-    .net-worth-amount.concern {
-      color: var(--color-neutral-600);
-    }
+    .net-worth-amount.excellent { color: var(--color-success); }
+    .net-worth-amount.good { color: var(--color-secondary); }
+    .net-worth-amount.attention { color: var(--color-warning); }
+    .net-worth-amount.concern { color: var(--color-neutral-600); }
 
     .net-worth-icon {
       position: absolute;
@@ -583,31 +513,13 @@ import { AccountFormDialogComponent, AccountFormData } from './account-form-dial
       color: var(--color-success);
     }
 
-    // Cards
-    .card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: var(--spacing-md);
-      padding-bottom: var(--spacing-sm);
-      border-bottom: 1px solid var(--color-neutral-300);
-    }
-
-    .card-header h3 {
-      font-family: var(--font-secondary);
-      font-size: 1.25rem;
-      font-weight: 600;
-      color: var(--color-neutral-900);
-      margin: 0;
-    }
-
     .last-updated {
       font-size: 0.875rem;
       color: var(--color-neutral-500);
       font-weight: 500;
     }
 
-    // Account Balances
+    // Account-specific styles
     .accounts-grid {
       display: grid;
       gap: var(--spacing-md);
@@ -622,58 +534,26 @@ import { AccountFormDialogComponent, AccountFormData } from './account-form-dial
       border: 1px solid var(--color-neutral-300);
       background: white;
       transition: all 0.2s ease-out;
-      position: relative;
     }
 
     .account-item.account-type-checking {
       background: rgba(90, 155, 212, 0.05);
-      border-color: rgba(90, 155, 212, 0.2);
       border-left: 4px solid var(--color-secondary);
     }
 
     .account-item.account-type-savings {
       background: rgba(82, 183, 136, 0.05);
-      border-color: rgba(82, 183, 136, 0.2);
       border-left: 4px solid var(--color-success);
     }
 
     .account-item.account-type-retirement {
       background: rgba(244, 162, 97, 0.05);
-      border-color: rgba(244, 162, 97, 0.2);
       border-left: 4px solid var(--color-accent);
     }
 
-    .add-account-item {
-      border: 2px dashed var(--color-neutral-400);
-      background: rgba(249, 199, 79, 0.03);
-      cursor: pointer;
-      justify-content: center;
-      text-align: center;
-    }
-
-    .add-account-item:hover {
-      border-color: var(--color-secondary);
-      background: rgba(90, 155, 212, 0.05);
+    .account-item:hover {
       transform: translateY(-1px);
       box-shadow: var(--shadow-md);
-    }
-
-    .account-item:hover:not(.add-account-item) {
-      transform: translateY(-1px);
-      box-shadow: var(--shadow-md);
-    }
-
-    .clickable-item {
-      cursor: pointer;
-    }
-
-    .clickable-item:hover {
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-lg);
-    }
-
-    .clickable-item:active {
-      transform: translateY(0px);
     }
 
     .account-info {
@@ -687,22 +567,6 @@ import { AccountFormDialogComponent, AccountFormData } from './account-form-dial
       font-size: 0.95rem;
       color: var(--color-neutral-700);
       font-weight: 600;
-      margin-bottom: 2px;
-    }
-
-    .account-type-badge {
-      font-size: 0.75rem;
-      color: var(--color-neutral-500);
-      font-weight: 500;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 4px;
-    }
-
-    .account-subtitle {
-      font-size: 0.8rem;
-      color: var(--color-neutral-500);
-      font-weight: 400;
     }
 
     .account-balance {
@@ -711,146 +575,22 @@ import { AccountFormDialogComponent, AccountFormData } from './account-form-dial
       font-weight: 700;
     }
 
-    .account-balance.positive {
-      color: var(--color-success);
-    }
-
-    .account-balance.neutral {
-      color: var(--color-secondary);
-    }
-
-    .account-balance.concern {
-      color: var(--color-neutral-600);
-    }
-
-    .account-icon {
-      opacity: 0.8;
-      font-size: 28px !important;
-      width: 28px !important;
-      height: 28px !important;
-      font-family: 'Material Icons' !important;
-      line-height: 1 !important;
-      flex-shrink: 0;
-    }
-
-    .account-item.account-type-checking .account-icon {
-      color: var(--color-secondary);
-    }
-
-    .account-item.account-type-savings .account-icon {
-      color: var(--color-success);
-    }
-
-    .account-item.account-type-retirement .account-icon {
-      color: var(--color-accent);
-    }
-
-    .add-account-item .account-icon {
-      color: var(--color-neutral-500);
-    }
-
-    .add-account-item:hover .account-icon {
-      color: var(--color-secondary);
-    }
-
-    // Account Actions
-    .clickable-account {
-      cursor: pointer;
-    }
+    .account-balance.positive { color: var(--color-success); }
+    .account-balance.neutral { color: var(--color-secondary); }
+    .account-balance.concern { color: var(--color-neutral-600); }
 
     .account-actions {
       display: flex;
-      align-items: center;
       gap: var(--spacing-xs);
       opacity: 0;
       transition: opacity 0.2s ease-out;
     }
 
-    .clickable-account:hover .account-actions {
+    .account-item:hover .account-actions {
       opacity: 1;
     }
 
-    .edit-btn, .delete-btn {
-      width: 32px !important;
-      height: 32px !important;
-      padding: 0 !important;
-      min-width: auto !important;
-    }
-
-    .edit-btn {
-      color: var(--color-secondary);
-    }
-
-    .edit-btn:hover {
-      background-color: rgba(90, 155, 212, 0.1);
-    }
-
-    .delete-btn {
-      color: var(--color-neutral-500);
-    }
-
-    .delete-btn:hover {
-      color: #d32f2f;
-      background-color: rgba(211, 47, 47, 0.1);
-    }
-
-    .account-actions mat-icon {
-      font-size: 18px !important;
-      width: 18px !important;
-      height: 18px !important;
-    }
-
-    // Empty State and Loading
-    .empty-accounts {
-      text-align: center;
-      padding: var(--spacing-xl);
-      color: var(--color-neutral-600);
-    }
-
-    .empty-icon {
-      margin-bottom: var(--spacing-md);
-    }
-
-    .empty-icon mat-icon {
-      font-size: 48px !important;
-      width: 48px !important;
-      height: 48px !important;
-      color: var(--color-neutral-400);
-    }
-
-    .empty-accounts h4 {
-      font-family: var(--font-secondary);
-      font-size: 1.1rem;
-      font-weight: 600;
-      margin: 0 0 var(--spacing-sm) 0;
-      color: var(--color-neutral-700);
-    }
-
-    .empty-accounts p {
-      margin: 0 0 var(--spacing-md) 0;
-      color: var(--color-neutral-500);
-    }
-
-    .loading-state {
-      text-align: center;
-      padding: var(--spacing-xl);
-      color: var(--color-neutral-600);
-    }
-
-    .loading-spinner mat-icon {
-      font-size: 32px !important;
-      width: 32px !important;
-      height: 32px !important;
-      color: var(--color-secondary);
-      animation: spin 2s linear infinite;
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    // Overview Section (formerly account balances)
+    // Overview Section styles
     .overview-grid {
       display: grid;
       gap: var(--spacing-md);
@@ -876,6 +616,11 @@ import { AccountFormDialogComponent, AccountFormData } from './account-form-dial
       border-color: rgba(244, 162, 97, 0.2);
     }
 
+    .overview-item:not(.income-item):not(.expense-item) {
+      background: rgba(82, 183, 136, 0.08);
+      border-color: rgba(82, 183, 136, 0.2);
+    }
+
     .overview-item:hover {
       transform: translateY(-1px);
       box-shadow: var(--shadow-md);
@@ -887,383 +632,43 @@ import { AccountFormDialogComponent, AccountFormData } from './account-form-dial
       gap: 4px;
     }
 
-    .overview-label {
-      font-size: 0.875rem;
-      color: var(--color-neutral-600);
-      font-weight: 500;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .info-icon {
-      font-size: 16px !important;
-      width: 16px !important;
-      height: 16px !important;
-      color: var(--color-secondary) !important;
-      opacity: 0.7;
-    }
-
     .overview-amount {
       font-family: var(--font-mono);
       font-size: 1.125rem;
       font-weight: 600;
     }
 
-    .overview-amount.positive {
-      color: var(--color-success);
+    .overview-amount.positive { color: var(--color-success); }
+    .overview-amount.neutral { color: var(--color-neutral-700); }
+    .overview-amount.warning { color: var(--color-warning); }
+
+    // Mobile responsive adjustments
+    @media (max-width: 768px) {
+      .header-content {
+        padding: var(--spacing-sm);
+        gap: var(--spacing-sm);
+      }
+      
+      .welcome-text {
+        display: none;
+      }
+      
+      .user-menu {
+        min-width: 40px;
+      }
+      
+      .brand .app-title {
+        font-size: 1.25rem;
+      }
+      
+      .brand .app-tagline {
+        font-size: 0.8rem;
+      }
     }
 
-    .overview-amount.neutral {
-      color: var(--color-neutral-700);
-    }
 
-    .overview-amount.warning {
-      color: var(--color-warning);
-    }
 
-    .overview-icon {
-      opacity: 0.8;
-      font-size: 24px !important;
-      width: 24px !important;
-      height: 24px !important;
-      font-family: 'Material Icons' !important;
-      line-height: 1 !important;
-    }
-
-    .overview-item.income-item .overview-icon {
-      color: var(--color-secondary);
-    }
-
-    .overview-item.expense-item .overview-icon {
-      color: var(--color-accent);
-    }
-
-    .overview-item:nth-child(3) .overview-icon {
-      color: var(--color-warning);
-    }
-
-    // Monthly Budget - Primary Card
-    .budget-primary-card {
-      background: linear-gradient(135deg, rgba(90, 155, 212, 0.12) 0%, rgba(82, 183, 136, 0.08) 100%);
-      border: 2px solid rgba(90, 155, 212, 0.3);
-      position: relative;
-      overflow: hidden;
-      box-shadow: var(--shadow-lg);
-      transform: scale(1.02);
-    }
-
-    .budget-primary-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 4px;
-      background: linear-gradient(90deg, var(--color-secondary) 0%, var(--color-success) 100%);
-    }
-
-    .budget-subtitle {
-      font-size: 0.8rem;
-      color: var(--color-secondary);
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .budget-overview {
-      display: flex;
-      flex-direction: column;
-      gap: var(--spacing-md);
-      margin: var(--spacing-md) 0;
-    }
-
-    .budget-status-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: var(--spacing-md);
-      flex-wrap: wrap;
-    }
-
-    .budget-info {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      flex: 1;
-      min-width: 140px;
-    }
-
-    .budget-label {
-      font-size: 0.875rem;
-      color: var(--color-neutral-600);
-      font-weight: 500;
-    }
-
-    .budget-amount.income {
-      font-family: var(--font-mono);
-      font-size: 1.25rem;
-      font-weight: 700;
-      color: var(--color-success);
-    }
-
-    .budget-status {
-      font-size: 0.95rem;
-      font-weight: 600;
-      padding: 4px 12px;
-      border-radius: var(--border-radius-sm);
-      text-align: center;
-    }
-
-    .budget-status.ready-to-start {
-      background: rgba(90, 155, 212, 0.15);
-      color: var(--color-secondary);
-      border: 1px solid rgba(90, 155, 212, 0.3);
-    }
-
-    // Categories Preview Styles
-    .categories-preview {
-      display: flex;
-      flex-direction: column;
-      gap: var(--spacing-sm);
-    }
-
-    .category-item.preview-item {
-      display: flex;
-      align-items: center;
-      gap: var(--spacing-md);
-      padding: var(--spacing-sm);
-      border-radius: var(--border-radius-md);
-      border: 1px solid;
-      background: white;
-      transition: all 0.2s ease-out;
-    }
-
-    .category-item.essential-category {
-      border-color: rgba(82, 183, 136, 0.3);
-      background: rgba(82, 183, 136, 0.05);
-    }
-
-    .category-item.flexible-category {
-      border-color: rgba(244, 162, 97, 0.3);
-      background: rgba(244, 162, 97, 0.05);
-    }
-
-    .category-icon-wrapper {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
-
-    .category-icon-wrapper.essential {
-      background: rgba(82, 183, 136, 0.15);
-    }
-
-    .category-icon-wrapper.flexible {
-      background: rgba(244, 162, 97, 0.15);
-    }
-
-    .category-icon {
-      font-size: 20px !important;
-      width: 20px !important;
-      height: 20px !important;
-      font-family: 'Material Icons' !important;
-      line-height: 1 !important;
-    }
-
-    .category-icon-wrapper.essential .category-icon {
-      color: var(--color-success);
-    }
-
-    .category-icon-wrapper.flexible .category-icon {
-      color: var(--color-accent);
-    }
-
-    .category-info {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-
-    .category-label {
-      font-size: 0.9rem;
-      font-weight: 600;
-      color: var(--color-neutral-800);
-    }
-
-    .category-desc {
-      font-size: 0.8rem;
-      color: var(--color-neutral-600);
-      line-height: 1.3;
-    }
-
-    .category-status {
-      display: flex;
-      align-items: center;
-      flex-shrink: 0;
-    }
-
-    .status-text {
-      font-size: 0.75rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      padding: 2px 8px;
-      border-radius: var(--border-radius-sm);
-    }
-
-    .essential-category .status-text {
-      background: rgba(82, 183, 136, 0.2);
-      color: var(--color-success);
-    }
-
-    .flexible-category .status-text {
-      background: rgba(244, 162, 97, 0.2);
-      color: var(--color-accent);
-    }
-
-    // Classification Health Section
-    .classification-health-section {
-      margin: var(--spacing-md) 0;
-      padding: var(--spacing-md);
-      background: rgba(240, 248, 255, 0.5);
-      border-radius: var(--border-radius-md);
-      border: 1px solid rgba(90, 155, 212, 0.15);
-    }
-
-    .health-row {
-      display: flex;
-      gap: var(--spacing-md);
-      flex-wrap: wrap;
-    }
-
-    .health-item {
-      flex: 1;
-      min-width: 280px;
-      padding: var(--spacing-sm);
-      background: white;
-      border-radius: var(--border-radius-sm);
-      border: 1px solid;
-    }
-
-    .health-item.essential-health {
-      border-color: rgba(82, 183, 136, 0.3);
-      border-left: 3px solid var(--color-success);
-    }
-
-    .health-item.non-essential-health {
-      border-color: rgba(244, 162, 97, 0.3);
-      border-left: 3px solid var(--color-accent);
-    }
-
-    .health-header {
-      display: flex;
-      align-items: center;
-      gap: var(--spacing-xs);
-      margin-bottom: var(--spacing-xs);
-    }
-
-    .health-icon {
-      font-size: 18px !important;
-      width: 18px !important;
-      height: 18px !important;
-    }
-
-    .health-icon.essential-icon {
-      color: var(--color-success);
-    }
-
-    .health-icon.non-essential-icon {
-      color: var(--color-accent);
-    }
-
-    .health-label {
-      font-size: 0.875rem;
-      font-weight: 600;
-      color: var(--color-neutral-800);
-      flex: 1;
-    }
-
-    .health-status {
-      font-size: 0.75rem;
-      font-weight: 600;
-      padding: 2px 8px;
-      border-radius: var(--border-radius-sm);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .health-status.status-excellent {
-      background: rgba(82, 183, 136, 0.15);
-      color: var(--color-success);
-    }
-
-    .health-status.status-good {
-      background: rgba(90, 155, 212, 0.15);
-      color: var(--color-secondary);
-    }
-
-    .health-status.status-attention {
-      background: rgba(249, 199, 79, 0.15);
-      color: var(--color-warning);
-    }
-
-    .health-status.status-concern {
-      background: rgba(231, 76, 60, 0.15);
-      color: #c0392b;
-    }
-
-    .health-details {
-      display: flex;
-      flex-direction: column;
-      gap: var(--spacing-xs);
-    }
-
-    .health-amount {
-      font-size: 0.8rem;
-      font-weight: 500;
-      color: var(--color-neutral-600);
-      font-family: var(--font-mono);
-    }
-
-    .health-progress {
-      height: 6px;
-      background: rgba(0, 0, 0, 0.1);
-      border-radius: 3px;
-      overflow: hidden;
-    }
-
-    .health-progress .progress-fill {
-      height: 100%;
-      transition: width 0.3s ease;
-      border-radius: 3px;
-    }
-
-    .essential-progress .progress-fill {
-      background: linear-gradient(90deg, var(--color-success), rgba(82, 183, 136, 0.8));
-    }
-
-    .non-essential-progress .progress-fill {
-      background: linear-gradient(90deg, var(--color-accent), rgba(244, 162, 97, 0.8));
-    }
-
-    .primary-action-button {
-      height: 56px;
-      font-weight: 700;
-      font-size: 1.1rem;
-      border-radius: var(--border-radius-md);
-      padding: 0 var(--spacing-xl);
-      min-width: 180px;
-      box-shadow: var(--shadow-md);
-      text-transform: none;
-    }
-
-    // Savings Goals - Secondary Card
+    // Special card styling overrides
     .goals-secondary-card {
       background: rgba(244, 162, 97, 0.06);
       border: 1px solid rgba(244, 162, 97, 0.25);
@@ -1281,579 +686,458 @@ import { AccountFormDialogComponent, AccountFormData } from './account-form-dial
       background: linear-gradient(90deg, var(--color-accent) 0%, rgba(244, 162, 97, 0.8) 100%);
     }
 
-    .goals-subtitle {
-      font-size: 0.8rem;
-      color: var(--color-accent);
-      font-weight: 500;
+    // NEW: Financial Overview Stack Layout
+    .financial-overview-stack {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-md);
+      height: 100%;
+    }
+
+    // NEW: Compact Net Worth Card
+    .net-worth-card-compact {
+      background: linear-gradient(135deg, rgba(82, 183, 136, 0.1) 0%, rgba(90, 155, 212, 0.1) 100%);
+      border-left: 4px solid var(--color-success);
+      padding: var(--spacing-md) !important;
+      flex: 0 0 auto;
+    }
+
+    .net-worth-content-compact {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-xs);
+    }
+
+    .net-worth-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .net-worth-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--color-neutral-600);
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
 
-    .goals-content {
-      display: flex;
-      align-items: center;
-      gap: var(--spacing-md);
-      margin: var(--spacing-md) 0;
-    }
-
-    .goals-icon {
-      background: rgba(244, 162, 97, 0.15);
-      border-radius: 50%;
-      width: 52px;
-      height: 52px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-    }
-
-    .goals-icon mat-icon {
+    .net-worth-icon-small {
       font-size: 20px !important;
       width: 20px !important;
       height: 20px !important;
-      color: var(--color-accent);
-      font-family: 'Material Icons' !important;
-      line-height: 1 !important;
+      color: var(--color-success);
+      opacity: 0.7;
     }
 
-    .goals-text {
-      flex: 1;
+    .net-worth-amount {
+      font-family: var(--font-mono);
+      font-size: 1.5rem;
+      font-weight: 700;
+      line-height: 1.1;
+      color: var(--color-success);
     }
 
-    .goals-text h4 {
-      font-family: var(--font-secondary);
-      font-size: 1.1rem;
-      font-weight: 600;
-      color: var(--color-neutral-900);
-      margin: 0 0 var(--spacing-xs) 0;
+    // NEW: Integrated Account Balances
+    .accounts-card-integrated {
+      flex: 1 1 auto;
+      padding: var(--spacing-md) !important;
     }
 
-    .goals-text p {
-      color: var(--color-neutral-600);
-      margin: 0;
-      line-height: 1.4;
-      font-size: 0.95rem;
+    .card-header-compact {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--spacing-sm);
+      
+      h3 {
+        font-size: 1rem;
+        margin: 0;
+        font-weight: 600;
+      }
     }
 
-    .secondary-action-button {
-      height: 44px;
-      font-weight: 500;
-      border-radius: var(--border-radius-md);
-      padding: 0 var(--spacing-md);
-      min-width: 140px;
-      font-size: 0.95rem;
-    }
-
-    // Profile Details
-    .profile-details {
+    .accounts-grid-compact {
       display: flex;
       flex-direction: column;
       gap: var(--spacing-sm);
     }
 
-    .profile-item {
+    .accounts-grid-compact .account-item {
+      padding: var(--spacing-sm);
+      border-radius: var(--border-radius-sm);
+    }
+
+    .account-icon-small {
+      font-size: 18px !important;
+      width: 18px !important;
+      height: 18px !important;
+    }
+
+    .accounts-grid-compact .account-balance {
+      font-size: 1rem;
+    }
+
+    .accounts-grid-compact .account-type-badge {
+      display: none; // Hide type badges in compact view
+    }
+
+    // NEW: Enhanced Savings Goals
+    .goals-enhanced-card {
+      background: rgba(244, 162, 97, 0.06);
+      border: 1px solid rgba(244, 162, 97, 0.25);
+      border-left: 4px solid var(--color-accent);
+    }
+
+    .savings-goals-content {
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: var(--spacing-sm) 0;
-      border-bottom: 1px solid var(--color-neutral-300);
-    }
-
-    .profile-item:last-child {
-      border-bottom: none;
-    }
-
-    .profile-label {
-      font-weight: 500;
-      color: var(--color-neutral-600);
-    }
-
-    .profile-value {
-      font-weight: 500;
-      color: var(--color-neutral-900);
-    }
-
-    .edit-profile-btn {
-      color: var(--color-secondary);
-      font-weight: 500;
-      transition: color 0.15s ease-out;
-    }
-
-    .edit-profile-btn:hover {
-      color: var(--color-accent);
-    }
-
-    .profile-card {
-      position: relative;
-    }
-
-    .profile-card::after {
-      content: '';
-      position: absolute;
-      top: 0;
-      right: 0;
-      bottom: 0;
-      width: 3px;
-      background: linear-gradient(180deg, var(--color-secondary) 0%, var(--color-accent) 100%);
-      border-radius: 0 var(--border-radius-lg) var(--border-radius-lg) 0;
-    }
-
-    // Responsive design
-    @media (max-width: 768px) {
-      .header-content {
-        padding: var(--spacing-sm);
-        gap: var(--spacing-sm);
-      }
-      
-      .dashboard-container {
-        padding: 0 var(--spacing-sm);
-        gap: var(--spacing-md);
-      }
-      
-      .health-indicator {
-        flex-direction: column;
-        text-align: center;
-        gap: var(--spacing-sm);
-        padding: var(--spacing-md);
-      }
-      
-      .health-content .health-title {
-        font-size: 1.25rem;
-      }
-      
-      .health-content .health-message {
-        font-size: 0.9rem;
-      }
-      
-      .setup-content {
-        flex-direction: column;
-        text-align: center;
-        gap: var(--spacing-sm);
-      }
-      
-      .setup-button {
-        width: 100%;
-        max-width: 200px;
-      }
-      
-      .brand .app-title {
-        font-size: 1.25rem;
-      }
-      
-      .brand .app-tagline {
-        font-size: 0.8rem;
-      }
-      
-      .welcome-text {
-        display: none;
-      }
-      
-      .user-menu {
-        min-width: 40px;
-      }
-    }
-
-    @media (min-width: 769px) {
-      .dashboard-container {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: var(--spacing-lg);
-        align-items: start;
-      }
-      
-      .health-hero {
-        grid-column: 1 / -1;
-        margin-bottom: 0;
-      }
-      
-      .net-worth-section {
-        grid-column: 1 / -1;
-      }
-      
-      .accounts-section {
-        grid-column: 1;
-      }
-      
-      .overview-section {
-        grid-column: 2;
-      }
-      
-      .profile-section {
-        grid-column: 2;
-      }
-      
-      .monthly-budget-section {
-        grid-column: 1;
-      }
-      
-      .savings-goals-section {
-        grid-column: 2;
-      }
-    }
-
-    @media (min-width: 1200px) {
-      .dashboard-container {
-        grid-template-columns: 2fr 1fr 1fr;
-      }
-      
-      .health-hero {
-        grid-column: 1 / -1;
-      }
-      
-      .net-worth-section {
-        grid-column: 1 / -1;
-      }
-      
-      .accounts-section {
-        grid-column: 1;
-      }
-      
-      .overview-section {
-        grid-column: 2;
-      }
-      
-      .profile-section {
-        grid-column: 3;
-        grid-row: 3 / 6;
-      }
-      
-      .monthly-budget-section {
-        grid-column: 1 / 3;
-      }
-      
-      .savings-goals-section {
-        grid-column: 1 / 2;
-        grid-row: 5;
-      }
-    }
-
-    // Budget Achievement Styles
-    .budget-achievement {
-      background: linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(76, 175, 80, 0.05) 100%);
-      border: 1px solid rgba(76, 175, 80, 0.2);
-      border-radius: var(--border-radius-md);
-      padding: var(--spacing-md);
-      margin-bottom: var(--spacing-md);
-      display: flex;
-      align-items: center;
+      flex-direction: column;
       gap: var(--spacing-md);
     }
 
-    .achievement-icon mat-icon {
-      font-size: 32px !important;
-      width: 32px !important;
-      height: 32px !important;
-      color: var(--color-success);
+    .goal-item {
+      padding: var(--spacing-sm);
+      background: white;
+      border-radius: var(--border-radius-sm);
+      border: 1px solid var(--color-neutral-200);
     }
 
-    .achievement-content h4 {
-      margin: 0 0 var(--spacing-xs) 0;
-      color: var(--color-success);
+    .goal-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--spacing-xs);
+    }
+
+    .goal-name {
       font-weight: 600;
-    }
-
-    .achievement-content p {
-      margin: 0;
       color: var(--color-neutral-700);
       font-size: 0.9rem;
     }
 
-    // Budget Health Overview Styles
-    .budget-health-overview {
-      margin-bottom: var(--spacing-lg);
+    .goal-progress {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--color-neutral-600);
     }
 
-    .budget-allocation-progress {
-      margin-top: var(--spacing-md);
-      background: rgba(250, 250, 250, 0.5);
-      border-radius: var(--border-radius-md);
-      padding: var(--spacing-md);
-    }
-
-    .allocation-header {
+    .goal-monthly {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: var(--spacing-sm);
+      gap: var(--spacing-sm);
     }
 
-    .allocation-label {
+    .monthly-target {
+      font-size: 0.75rem;
+      color: var(--color-accent);
       font-weight: 500;
-      color: var(--color-neutral-700);
+      white-space: nowrap;
     }
 
-    .allocation-percentage {
-      font-weight: 600;
-      color: var(--color-neutral-900);
-      font-family: var(--font-mono);
-    }
-
-    .allocation-bar {
-      height: 12px;
-      background-color: rgba(0, 0, 0, 0.1);
-      border-radius: 6px;
+    .progress-bar {
+      flex: 1;
+      height: 6px;
+      background: var(--color-neutral-200);
+      border-radius: 3px;
       overflow: hidden;
     }
 
-    .allocation-fill {
+    .progress-fill {
       height: 100%;
-      border-radius: 6px;
-      transition: width 0.6s ease-out;
+      background: linear-gradient(90deg, var(--color-accent) 0%, var(--color-success) 100%);
+      transition: width 0.3s ease-out;
     }
 
-    .allocation-fill.health-excellent {
-      background: linear-gradient(90deg, var(--color-success) 0%, rgba(76, 175, 80, 0.8) 100%);
+    .add-goal-button {
+      width: 100%;
+      padding: var(--spacing-sm);
+      border: 2px dashed var(--color-neutral-300);
+      color: var(--color-neutral-600);
+      background: transparent;
+      
+      &:hover {
+        border-color: var(--color-accent);
+        color: var(--color-accent);
+      }
     }
 
-    .allocation-fill.health-good {
-      background: linear-gradient(90deg, var(--color-secondary) 0%, rgba(90, 155, 212, 0.8) 100%);
+    .empty-goals-state {
+      text-align: center;
+      padding: var(--spacing-lg);
+      color: var(--color-neutral-600);
     }
 
-    .allocation-fill.health-attention {
-      background: linear-gradient(90deg, var(--color-warning) 0%, rgba(255, 193, 7, 0.8) 100%);
+    .empty-icon {
+      font-size: 48px !important;
+      width: 48px !important;
+      height: 48px !important;
+      color: var(--color-neutral-400);
+      margin-bottom: var(--spacing-sm);
     }
 
-    .allocation-fill.health-concern {
-      background: linear-gradient(90deg, var(--color-danger) 0%, rgba(244, 67, 54, 0.8) 100%);
+    .empty-subtitle {
+      font-size: 0.85rem;
+      margin: 0;
+      opacity: 0.7;
     }
 
-    // Budget Categories Styles
-    .budget-categories {
-      margin-bottom: var(--spacing-lg);
+    .add-goal-btn {
+      width: 32px;
+      height: 32px;
+      
+      mat-icon {
+        font-size: 18px !important;
+        width: 18px !important;
+        height: 18px !important;
+      }
     }
 
-    .budget-categories h4 {
-      margin: 0 0 var(--spacing-md) 0;
-      color: var(--color-neutral-900);
+    // NEW: Compact Recent Expenses
+    .expenses-compact-card {
+      padding: var(--spacing-md) !important;
+    }
+
+    .expenses-compact-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-xs);
+    }
+
+    .expense-item-compact {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      padding: var(--spacing-sm);
+      border-radius: var(--border-radius-sm);
+      border: 1px solid transparent;
+      margin-bottom: var(--spacing-xs);
+      transition: all 0.2s ease-out;
+      
+      .expense-icon {
+        font-size: 16px !important;
+        width: 16px !important;
+        height: 16px !important;
+        color: white;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        padding: 6px;
+        box-sizing: content-box;
+      }
+      
+      .expense-desc {
+        flex: 1;
+        font-size: 0.85rem;
+        color: var(--color-neutral-800);
+        font-weight: 500;
+      }
+      
+      .expense-amount {
+        font-family: var(--font-mono);
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--color-neutral-800);
+      }
+    }
+
+    // Category-specific colors for expenses
+    .expense-item-compact.grocery-category {
+      background: rgba(76, 175, 80, 0.12);
+      border-color: rgba(76, 175, 80, 0.3);
+      
+      .expense-icon {
+        background: rgba(76, 175, 80, 0.8);
+      }
+    }
+
+    .expense-item-compact.transportation-category {
+      background: rgba(33, 150, 243, 0.12);
+      border-color: rgba(33, 150, 243, 0.3);
+      
+      .expense-icon {
+        background: rgba(33, 150, 243, 0.8);
+      }
+    }
+
+    .expense-item-compact.dining-category {
+      background: rgba(255, 152, 0, 0.12);
+      border-color: rgba(255, 152, 0, 0.3);
+      
+      .expense-icon {
+        background: rgba(255, 152, 0, 0.8);
+      }
+    }
+
+    .expense-item-compact.shopping-category {
+      background: rgba(156, 39, 176, 0.12);
+      border-color: rgba(156, 39, 176, 0.3);
+      
+      .expense-icon {
+        background: rgba(156, 39, 176, 0.8);
+      }
+    }
+
+    .expense-item-compact:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .view-all-prominent {
       font-weight: 600;
+      font-size: 0.8rem;
+      
+      mat-icon {
+        font-size: 16px !important;
+        width: 16px !important;
+        height: 16px !important;
+      }
     }
 
-    .category-list {
+    // Responsive adjustments for new layout
+    @media (max-width: 1199px) {
+      .financial-overview-stack {
+        flex-direction: row;
+        gap: var(--spacing-lg);
+      }
+      
+      .net-worth-card-compact,
+      .accounts-card-integrated {
+        flex: 1;
+      }
+    }
+
+    @media (max-width: 767px) {
+      .financial-overview-stack {
+        flex-direction: column;
+      }
+    }
+
+    // Student Loans Section Styles
+    .loans-card {
+      background: rgba(249, 199, 79, 0.06);
+      border: 1px solid rgba(249, 199, 79, 0.25);
+      border-left: 4px solid var(--color-warning);
+    }
+
+    .loans-card.empty-state {
+      background: rgba(244, 244, 244, 0.06);
+      border-color: rgba(200, 200, 200, 0.25);
+      border-left: 4px solid var(--color-neutral-400);
+    }
+
+    .loans-content {
       display: flex;
       flex-direction: column;
       gap: var(--spacing-md);
     }
 
-    .budget-category-card {
-      background: white;
-      border-radius: var(--border-radius-md);
-      padding: var(--spacing-md);
-      border: 1px solid var(--color-neutral-200);
-      transition: all 0.2s ease-out;
+    .loans-summary {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-md);
     }
 
-    .budget-category-card:hover {
-      transform: translateY(-1px);
-      box-shadow: var(--shadow-md);
-    }
-
-    .budget-category-card.essential-category {
-      border-left: 4px solid var(--color-success);
-    }
-
-    .budget-category-card.non-essential-category {
-      border-left: 4px solid var(--color-accent);
-    }
-
-    .category-header {
+    .loan-stat {
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: var(--spacing-sm);
-    }
-
-    .category-name-row {
-      display: flex;
       align-items: center;
-      gap: var(--spacing-sm);
-      margin-bottom: var(--spacing-xs);
+      padding: var(--spacing-sm);
+      background: white;
+      border-radius: var(--border-radius-sm);
+      border: 1px solid var(--color-neutral-200);
     }
 
-    .category-type-icon {
-      font-size: 20px !important;
-      width: 20px !important;
-      height: 20px !important;
+    .stat-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
     }
 
-    .category-type-icon.essential-icon {
-      color: var(--color-success);
-    }
-
-    .category-type-icon.non-essential-icon {
-      color: var(--color-accent);
-    }
-
-    .category-name {
-      font-weight: 600;
-      color: var(--color-neutral-900);
-      font-size: 1.05rem;
-    }
-
-    .category-type-badge {
-      font-size: 0.75rem;
-      padding: 2px 8px;
-      border-radius: 12px;
+    .stat-label {
+      font-size: 0.8rem;
+      color: var(--color-neutral-600);
       font-weight: 500;
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
 
-    .category-type-badge.essential-badge {
-      background-color: rgba(76, 175, 80, 0.1);
-      color: var(--color-success);
-    }
-
-    .category-type-badge.non-essential-badge {
-      background-color: rgba(244, 162, 97, 0.1);
-      color: var(--color-accent);
-    }
-
-    .category-description {
-      font-size: 0.85rem;
-      color: var(--color-neutral-600);
-      margin: 0;
-      line-height: 1.3;
-    }
-
-    .category-amounts {
-      display: flex;
-      align-items: center;
-      gap: var(--spacing-xs);
+    .stat-value {
       font-family: var(--font-mono);
-    }
-
-    .spending-amount {
       font-weight: 600;
-      color: var(--color-neutral-900);
-      font-size: 1.1rem;
+      font-size: 1rem;
     }
 
-    .budget-limit {
-      color: var(--color-neutral-500);
-      font-size: 0.95rem;
-    }
-
-    .category-progress {
-      margin-top: var(--spacing-sm);
-    }
-
-    .progress-bar {
-      height: 8px;
-      background-color: rgba(0, 0, 0, 0.1);
-      border-radius: 4px;
-      overflow: hidden;
-      margin-bottom: var(--spacing-xs);
-    }
-
-    .progress-fill {
-      height: 100%;
-      border-radius: 4px;
-      transition: width 0.6s ease-out;
-    }
-
-    .progress-fill.health-excellent {
-      background: var(--color-success);
-    }
-
-    .progress-fill.health-good {
-      background: var(--color-secondary);
-    }
-
-    .progress-fill.health-attention {
-      background: var(--color-warning);
-    }
-
-    .progress-fill.health-concern {
-      background: var(--color-danger);
-    }
-
-    .progress-details {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 0.85rem;
-    }
-
-    .remaining-amount {
-      color: var(--color-neutral-600);
-      font-family: var(--font-mono);
-    }
-
-    .health-status {
-      font-weight: 500;
-    }
-
-    .health-status.status-excellent {
-      color: var(--color-success);
-    }
-
-    .health-status.status-good {
-      color: var(--color-secondary);
-    }
-
-    .health-status.status-attention {
+    .stat-value.balance-amount {
       color: var(--color-warning);
     }
 
-    .health-status.status-concern {
-      color: var(--color-danger);
+    .stat-value.payment-amount {
+      color: var(--color-accent);
     }
 
-    // Budget Empty State
-    .budget-empty-state {
+    .stat-icon {
+      font-size: 20px !important;
+      width: 20px !important;
+      height: 20px !important;
+      color: var(--color-neutral-500);
+    }
+
+    .view-details-btn {
+      width: 100%;
+      border-color: var(--color-warning);
+      color: var(--color-warning);
+      
+      &:hover {
+        background-color: rgba(249, 199, 79, 0.1);
+      }
+    }
+
+    .manage-loans-btn {
+      width: 32px;
+      height: 32px;
+      color: var(--color-warning);
+      
+      &:hover {
+        background-color: rgba(249, 199, 79, 0.1);
+      }
+      
+      mat-icon {
+        font-size: 18px !important;
+        width: 18px !important;
+        height: 18px !important;
+      }
+    }
+
+    // Empty State Styles
+    .empty-loans-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
       text-align: center;
-      padding: var(--spacing-xl);
-      background: rgba(250, 250, 250, 0.5);
-      border-radius: var(--border-radius-md);
-      margin-bottom: var(--spacing-lg);
+      gap: var(--spacing-md);
+      padding: var(--spacing-lg) var(--spacing-sm);
     }
 
-    .budget-empty-state .empty-icon mat-icon {
+    .empty-icon {
       font-size: 48px !important;
       width: 48px !important;
       height: 48px !important;
       color: var(--color-neutral-400);
-      margin-bottom: var(--spacing-md);
     }
 
-    .budget-empty-state h4 {
-      margin: 0 0 var(--spacing-sm) 0;
-      color: var(--color-neutral-700);
-    }
-
-    .budget-empty-state p {
+    .empty-message {
+      font-size: 0.9rem;
+      color: var(--color-neutral-600);
       margin: 0;
-      color: var(--color-neutral-500);
-      max-width: 400px;
-      margin-left: auto;
-      margin-right: auto;
     }
 
-    // Mobile Responsive for Budget Categories
-    @media (max-width: 768px) {
-      .budget-category-card {
-        padding: var(--spacing-sm);
-      }
-
-      .category-header {
-        flex-direction: column;
-        align-items: stretch;
-        gap: var(--spacing-sm);
-      }
-
-      .category-amounts {
-        justify-content: flex-end;
-      }
-
-      .budget-achievement {
-        flex-direction: column;
-        text-align: center;
-      }
-
-      .allocation-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: var(--spacing-xs);
+    .add-first-loan-btn {
+      background-color: var(--color-primary);
+      
+      mat-icon {
+        font-size: 16px !important;
+        width: 16px !important;
+        height: 16px !important;
       }
     }
   `]
@@ -1861,8 +1145,11 @@ import { AccountFormDialogComponent, AccountFormData } from './account-form-dial
 export class DashboardComponent implements OnInit, OnDestroy {
   user: User | null = null;
   dashboardData: DashboardResponse | null = null;
+  dashboardOverview: DashboardOverviewResponse | null = null;
   accounts: Account[] = [];
+  studentLoanSummary: StudentLoanSummary | null = null;
   classificationHealth: BudgetHealthByClassification | null = null;
+  savingsGoals: any[] = [];
   isLoading = false;
   private destroy$ = new Subject<void>();
   
@@ -1885,6 +1172,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
       if (user) {
         this.loadDashboardData();
         this.loadClassificationHealth();
+        this.loadStudentLoanData();
+        this.loadSavingsGoals();
       }
     });
 
@@ -1894,8 +1183,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
       filter((event: NavigationEnd) => event.url === '/dashboard'),
       takeUntil(this.destroy$)
     ).subscribe(() => {
-      // Refresh all dashboard data when returning to dashboard
-      this.refreshAllData();
+      // Add small delay to ensure any backend updates are complete
+      setTimeout(() => {
+        // Refresh all dashboard data when returning to dashboard
+        this.refreshAllData();
+      }, 100);
     });
 
     // Refresh user data to get latest loan information
@@ -1918,24 +1210,31 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   refreshAllData(): void {
     if (this.user) {
+      console.log('Refreshing all dashboard data...');
       this.loadDashboardData();
       this.loadClassificationHealth();
+      this.loadStudentLoanData();
     }
   }
 
   loadDashboardData(): void {
     this.isLoading = true;
-    this.dashboardService.getDashboard().subscribe({
+    console.log('Loading dashboard data...');
+    
+    // Load both the old dashboard data and the new complete overview
+    const dashboardData$ = this.dashboardService.getDashboard();
+    const completeOverview$ = this.dashboardService.getCompleteOverview();
+    
+    dashboardData$.subscribe({
       next: (data) => {
+        console.log('Dashboard data received:', data);
+        console.log('Budget categories:', data.budgetCategories);
         this.dashboardData = data;
         this.accounts = data.accounts;
-        this.isLoading = false;
-        // Force change detection to ensure UI updates
         this.cdr.detectChanges();
       },
       error: (error) => {
         console.error('Failed to load dashboard data:', error);
-        this.isLoading = false;
         // Still show interface even if accounts fail to load
         this.accounts = [];
         this.dashboardData = {
@@ -1944,6 +1243,21 @@ export class DashboardComponent implements OnInit, OnDestroy {
           accounts: [],
           budgetCategories: []
         };
+        this.cdr.detectChanges();
+      }
+    });
+
+    completeOverview$.subscribe({
+      next: (overview) => {
+        console.log('Complete overview received:', overview);
+        this.dashboardOverview = overview;
+        this.isLoading = false;
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        console.error('Failed to load complete overview:', error);
+        this.isLoading = false;
+        this.dashboardOverview = null;
         this.cdr.detectChanges();
       }
     });
@@ -1963,6 +1277,28 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
   }
 
+  loadStudentLoanData(): void {
+    this.studentLoansService.getStudentLoans().pipe(takeUntil(this.destroy$)).subscribe({
+      next: (summary) => {
+        console.log('Student loan summary received:', summary);
+        this.studentLoanSummary = summary;
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        console.error('Failed to load student loan data:', error);
+        // Set empty summary to allow adding loans
+        this.studentLoanSummary = {
+          totalBalance: 0,
+          totalMonthlyPayment: 0,
+          averageInterestRate: 0,
+          totalLoans: 0,
+          loans: []
+        };
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
   logout(): void {
     this.authService.logout().subscribe({
       next: () => {
@@ -1976,6 +1312,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   getTotalLoanBalance(): number {
+    if (this.studentLoanSummary?.totalBalance) {
+      return this.studentLoanSummary.totalBalance;
+    }
     if (this.user?.studentLoanSummary?.totalBalance) {
       return this.user.studentLoanSummary.totalBalance;
     }
@@ -1983,6 +1322,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   getTotalLoanPayment(): number {
+    if (this.studentLoanSummary?.totalMonthlyPayment) {
+      return this.studentLoanSummary.totalMonthlyPayment;
+    }
     if (this.user?.studentLoanSummary?.totalMonthlyPayment) {
       return this.user.studentLoanSummary.totalMonthlyPayment;
     }
@@ -2149,29 +1491,34 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   openLoanBreakdown(): void {
-    // First, try to load real loan data from API
-    this.studentLoansService.getStudentLoans().subscribe({
-      next: (loanSummary) => {
-        this.showLoanBreakdownModal(loanSummary);
-      },
-      error: (error) => {
-        console.error('Failed to load loan data:', error);
-        // Fall back to mock data or user profile data
-        if (this.user?.studentLoanSummary) {
-          this.showLoanBreakdownModal(this.user.studentLoanSummary);
-        } else {
-          // Create empty summary to allow adding loans
-          const emptySummary: StudentLoanSummary = {
-            totalBalance: 0,
-            totalMonthlyPayment: 0,
-            averageInterestRate: 0,
-            totalLoans: 0,
-            loans: []
-          };
-          this.showLoanBreakdownModal(emptySummary);
+    // Use already loaded data if available, otherwise fetch fresh data
+    if (this.studentLoanSummary) {
+      this.showLoanBreakdownModal(this.studentLoanSummary);
+    } else {
+      // Fallback to API call if no data is loaded yet
+      this.studentLoansService.getStudentLoans().subscribe({
+        next: (loanSummary) => {
+          this.showLoanBreakdownModal(loanSummary);
+        },
+        error: (error) => {
+          console.error('Failed to load loan data:', error);
+          // Fall back to user profile data or create empty summary
+          if (this.user?.studentLoanSummary) {
+            this.showLoanBreakdownModal(this.user.studentLoanSummary);
+          } else {
+            // Create empty summary to allow adding loans
+            const emptySummary: StudentLoanSummary = {
+              totalBalance: 0,
+              totalMonthlyPayment: 0,
+              averageInterestRate: 0,
+              totalLoans: 0,
+              loans: []
+            };
+            this.showLoanBreakdownModal(emptySummary);
+          }
         }
-      }
-    });
+      });
+    }
   }
 
   private showLoanBreakdownModal(loanSummary: StudentLoanSummary): void {
@@ -2185,7 +1532,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     dialogRef.afterClosed().subscribe(result => {
       if (result === 'refresh') {
-        // Refresh all dashboard data when loans are modified
+        // Refresh student loan data first
+        this.loadStudentLoanData();
+        
+        // Also refresh all dashboard data when loans are modified
         this.refreshAllData();
         
         // Also refresh the user data to update loan summary
@@ -2204,6 +1554,51 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   navigateToBudgetCategories(): void {
     this.router.navigate(['/budget-categories']);
+  }
+
+  navigateToExpenseLogging(): void {
+    this.router.navigate(['/expense-logging']);
+  }
+
+  openSavingsGoalDialog(): void {
+    // Calculate financial data for smart savings dialog
+    const monthlyIncome = this.user?.monthlyIncome || 6500; // Sample data or user income
+    
+    // Calculate total from budget categories (when available)
+    const totalBudgetCategories = this.dashboardOverview?.budgetSummary?.reduce((sum, category) => 
+      sum + (category.monthlyLimit || 0), 0) || 4200; // Sample data
+    
+    // Get student loan payments
+    const totalStudentLoans = this.getTotalLoanPayment();
+    
+    // Calculate available money for savings
+    const availableForSavings = monthlyIncome - totalBudgetCategories - totalStudentLoans;
+
+    const dialogData: SavingsGoalData = {
+      monthlyIncome,
+      totalBudgetCategories,
+      totalStudentLoans,
+      availableForSavings
+    };
+
+    const dialogRef = this.dialog.open(SmartSavingsGoalDialogComponent, {
+      width: '800px',
+      maxWidth: '95vw',
+      maxHeight: '90vh',
+      data: dialogData,
+      panelClass: 'smart-savings-dialog'
+    });
+
+    dialogRef.afterClosed().subscribe((result: SavingsGoalResult | string) => {
+      if (result === 'navigate-budget') {
+        this.navigateToBudgetCategories();
+      } else if (result && typeof result === 'object') {
+        // Handle successful goal creation
+        console.log('Savings goal created:', result);
+        this.saveSavingsGoal(result);
+        this.loadSavingsGoals();
+      }
+    });
   }
 
   getBudgetStatusClass(): string {
@@ -2229,5 +1624,33 @@ export class DashboardComponent implements OnInit, OnDestroy {
   getProgressPercentage(spending: number, limit: number): number {
     if (limit === 0) return 0;
     return Math.min((spending / limit) * 100, 100);
+  }
+
+  private saveSavingsGoal(goal: SavingsGoalResult): void {
+    const existingGoals = this.getSavingsGoalsFromStorage();
+    const goalWithId = {
+      ...goal,
+      id: Date.now().toString(),
+      createdAt: new Date().toISOString(),
+      currentProgress: 0 // Start with 0 progress
+    };
+    existingGoals.push(goalWithId);
+    localStorage.setItem('savingsGoals', JSON.stringify(existingGoals));
+  }
+
+  private getSavingsGoalsFromStorage(): any[] {
+    const stored = localStorage.getItem('savingsGoals');
+    return stored ? JSON.parse(stored) : [];
+  }
+
+  private loadSavingsGoals(): void {
+    this.savingsGoals = this.getSavingsGoalsFromStorage();
+    console.log('Loaded savings goals:', this.savingsGoals);
+    this.cdr.detectChanges(); // Force change detection
+  }
+
+  getGoalProgressPercentage(goal: any): number {
+    if (!goal.targetAmount) return 0;
+    return Math.min((goal.currentProgress || 0) / goal.targetAmount * 100, 100);
   }
 }

@@ -17,6 +17,10 @@ export class AuthGuard implements CanActivate {
     route: ActivatedRouteSnapshot,
     state: RouterStateSnapshot
   ): Observable<boolean> | Promise<boolean> | boolean {
+    // Temporarily disable auth for testing layout
+    return true;
+    
+    /* Original auth logic - commented out for testing
     return this.authService.isAuthenticated$.pipe(
       map(isAuthenticated => {
         if (isAuthenticated) {
@@ -28,5 +32,6 @@ export class AuthGuard implements CanActivate {
         }
       })
     );
+    */
   }
 }

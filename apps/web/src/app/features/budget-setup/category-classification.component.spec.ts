@@ -26,6 +26,8 @@ describe('CategoryClassificationComponent', () => {
       monthlyLimit: 500,
       isEssential: true,
       description: 'Food and household essentials',
+      colorId: 'green',
+      iconId: 'local_grocery_store',
       createdAt: '2024-01-01T00:00:00Z'
     },
     {
@@ -35,6 +37,8 @@ describe('CategoryClassificationComponent', () => {
       monthlyLimit: 200,
       isEssential: false,
       description: 'Movies, games, and recreational activities',
+      colorId: 'purple',
+      iconId: 'movie',
       createdAt: '2024-01-01T00:00:00Z'
     }
   ];
@@ -79,7 +83,10 @@ describe('CategoryClassificationComponent', () => {
     classificationService = TestBed.inject(ClassificationSuggestionService) as jasmine.SpyObj<ClassificationSuggestionService>;
 
     // Setup default spy returns
-    budgetCategoriesService.getBudgetCategories.and.returnValue(of(mockCategories));
+    Object.defineProperty(budgetCategoriesService, 'budgetCategories$', {
+      writable: true,
+      value: of(mockCategories)
+    });
     classificationService.getClassificationSuggestions.and.returnValue(of(mockSuggestions));
     budgetCategoriesService.loadBudgetCategories.and.returnValue(of(mockCategories));
   });
@@ -91,7 +98,7 @@ describe('CategoryClassificationComponent', () => {
   it('should load categories and suggestions on init', () => {
     component.ngOnInit();
 
-    expect(budgetCategoriesService.getBudgetCategories).toHaveBeenCalled();
+    expect(budgetCategoriesService.loadBudgetCategories).toHaveBeenCalled();
     expect(classificationService.getClassificationSuggestions).toHaveBeenCalled();
     expect(component.categories.length).toBe(2);
     expect(component.essentialCategories.length).toBe(1);
@@ -240,7 +247,7 @@ describe('CategoryClassificationComponent', () => {
   });
 
   it('should handle loading error', () => {
-    budgetCategoriesService.getBudgetCategories.and.returnValue(
+    budgetCategoriesService.loadBudgetCategories.and.returnValue(
       throwError(() => new Error('Load failed'))
     );
     

@@ -1,0 +1,319 @@
+.recent-expenses-card {
+  width: 100%;
+  
+  mat-card-header {
+    padding-bottom: 12px;
+    
+    .header-actions {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+  }
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+  
+  p {
+    margin-top: 16px;
+    color: #6c757d;
+  }
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+  
+  .empty-icon {
+    font-size: 3rem;
+    height: 3rem;
+    width: 3rem;
+    color: #adb5bd;
+    margin-bottom: 16px;
+  }
+  
+  h3 {
+    margin: 0 0 8px 0;
+    color: #495057;
+    font-weight: 500;
+  }
+  
+  p {
+    margin: 0;
+    color: #6c757d;
+    max-width: 300px;
+  }
+}
+
+.expenses-container {
+  .date-group {
+    margin-bottom: 24px;
+    
+    &:last-child {
+      margin-bottom: 0;
+    }
+    
+    .date-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #e9ecef;
+      margin-bottom: 12px;
+      
+      .date-label {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 500;
+        color: #495057;
+      }
+      
+      .date-total {
+        font-weight: 600;
+        color: #2c3e50;
+      }
+    }
+  }
+}
+
+.expenses-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.expense-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border-left: 3px solid transparent;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background-color: #e9ecef;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  &.duplicate-warning {
+    border-left-color: #ffc107;
+    background-color: #fff3cd;
+    
+    &:hover {
+      background-color: #ffeaa7;
+    }
+  }
+  
+  .expense-main-info {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex: 1;
+    min-width: 0; // Allow text to wrap
+    
+    .expense-amount {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #2c3e50;
+      flex-shrink: 0;
+      min-width: 80px;
+    }
+    
+    .expense-details {
+      flex: 1;
+      min-width: 0;
+      
+      .expense-category {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 4px;
+        flex-wrap: wrap;
+        
+        .category-name {
+          font-weight: 500;
+          color: #495057;
+        }
+        
+        .category-chip {
+          font-size: 0.75rem;
+          height: 20px;
+          border-radius: 10px;
+          flex-shrink: 0;
+        }
+      }
+      
+      .expense-description {
+        font-size: 0.9rem;
+        color: #6c757d;
+        margin-bottom: 4px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      
+      .expense-meta {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 0.85rem;
+        color: #adb5bd;
+        flex-wrap: wrap;
+      }
+      
+      .expense-date, .expense-time {
+        font-size: 0.85rem;
+        color: #adb5bd;
+      }
+    }
+  }
+  
+  .duplicate-indicator {
+    color: #856404;
+    margin-right: 8px;
+    
+    mat-icon {
+      font-size: 1.2rem;
+      height: 1.2rem;
+      width: 1.2rem;
+    }
+  }
+  
+  .expense-actions {
+    flex-shrink: 0;
+    margin-left: 8px;
+    
+    button {
+      opacity: 0.6;
+      transition: opacity 0.2s ease;
+    }
+    
+    &:hover button {
+      opacity: 1;
+    }
+  }
+}
+
+.essential-chip {
+  background-color: #e3f2fd !important;
+  color: #1976d2 !important;
+}
+
+.non-essential-chip {
+  background-color: #f3e5f5 !important;
+  color: #7b1fa2 !important;
+}
+
+.expenses-summary {
+  margin-top: 20px;
+  
+  .summary-content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-top: 12px;
+    
+    .summary-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.9rem;
+      
+      .label {
+        color: #6c757d;
+      }
+      
+      .value {
+        font-weight: 500;
+        color: #2c3e50;
+        
+        &.warning-text {
+          color: #856404;
+        }
+      }
+    }
+  }
+}
+
+// Responsive design
+@media (max-width: 768px) {
+  .expense-item {
+    padding: 12px;
+    
+    .expense-main-info {
+      gap: 12px;
+      
+      .expense-amount {
+        font-size: 1.1rem;
+        min-width: 70px;
+      }
+      
+      .expense-details {
+        .expense-category {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 4px;
+          
+          .category-chip {
+            align-self: flex-start;
+          }
+        }
+        
+        .expense-meta {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 2px;
+        }
+      }
+    }
+  }
+  
+  .date-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  
+  .expenses-summary {
+    .summary-content {
+      .summary-item {
+        font-size: 0.85rem;
+      }
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .expense-item {
+    .expense-main-info {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+      
+      .expense-amount {
+        font-size: 1.2rem;
+        margin-bottom: 4px;
+      }
+    }
+    
+    .expense-actions {
+      align-self: flex-start;
+      margin-top: -40px;
+      margin-left: auto;
+    }
+  }
+}

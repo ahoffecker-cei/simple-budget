@@ -13,11 +13,11 @@ export interface BudgetWizardRequest {
 
 export interface BudgetWizardResponse {
   userProfile: User;
-  budgetHealth: BudgetHealthStatus;
+  budgetHealth: BudgetWizardHealthStatus;
   message: string;
 }
 
-export interface BudgetHealthStatus {
+export interface BudgetWizardHealthStatus {
   totalIncome: number;
   totalExpenses: number;
   studentLoanPayments: number;
