@@ -52,11 +52,17 @@ export class BudgetCalculationUtils {
         percentage,
         message: 'Good budget allocation. You still have some flexibility for savings.'
       };
-    } else {
+    } else if (percentage < 100) {  // Changed to handle exactly 100%
       return {
         status: 'fair',
         percentage,
         message: 'Your budget is quite tight. Consider reviewing expenses for potential savings.'
+      };
+    } else {  // percentage === 100
+      return {
+        status: 'fair',
+        percentage,
+        message: 'You\'re using 100% of your income. Consider building an emergency fund.'
       };
     }
   }

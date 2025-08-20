@@ -32,8 +32,8 @@ export class BudgetHealthCalculationUtils {
     
     if (percentage <= 0.5) return 'excellent';
     if (percentage <= 0.75) return 'good';
-    if (percentage <= 0.9) return 'attention';
-    return 'concern';
+    if (percentage <= 1.0) return 'attention';  // Changed < 1.0 to <= 1.0 to handle exactly 100%
+    return 'concern';  // Only when spending > limit (over 100%)
   }
   
   static getHealthStatusColor(status: string): string {

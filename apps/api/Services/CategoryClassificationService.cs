@@ -115,7 +115,7 @@ public class CategoryClassificationService : ICategoryClassificationService
         {
             <= 0.5m => "excellent",
             <= 0.75m => "good", 
-            <= 0.9m => "attention",
+            <= 1.0m => "attention",
             _ => "concern"
         };
     }

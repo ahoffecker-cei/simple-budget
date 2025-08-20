@@ -58,8 +58,8 @@ export class BudgetImpactService {
   }
 
   getMonthlyProgressData(): Observable<MonthlyProgressData[]> {
-    return this.http.get<MonthlyProgressData[]>(`${this.apiUrl}/dashboard/monthly-progress`)
-      .pipe(shareReplay(1));
+    // Remove shareReplay to always fetch fresh data
+    return this.http.get<MonthlyProgressData[]>(`${this.apiUrl}/dashboard/monthly-progress`);
   }
 
   getHealthStatusColor(healthStatus: 'excellent' | 'good' | 'attention' | 'concern'): string {

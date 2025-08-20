@@ -357,7 +357,7 @@ public class DashboardService : IDashboardService
         {
             <= 50 => "excellent",
             <= 75 => "good",
-            <= 90 => "attention",
+            <= 100 => "attention",
             _ => "concern"
         };
     }

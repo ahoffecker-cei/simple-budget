@@ -11,6 +11,8 @@ import { MatCardModule } from '@angular/material/card';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Subject, takeUntil, forkJoin } from 'rxjs';
 import { IncomeManagementService } from '../../../services/income-management.service';
+import { ApiService } from '../../../services/api.service';
+import { AuthService } from '../../../services/auth.service';
 import { IncomeSource, IncomeManagementResponse } from '@simple-budget/shared';
 
 export interface IncomeManagementDialogData {
@@ -140,8 +142,9 @@ export interface IncomeManagementDialogResult {
 
         <mat-dialog-actions class="dialog-actions">
           <button type="button" mat-button mat-dialog-close>Cancel</button>
-          <button type="submit" mat-raised-button color="primary" 
-                  [disabled]="!incomeForm.valid || isLoading">
+          <button type="button" mat-raised-button color="primary" 
+                  [disabled]="!incomeForm.valid || isLoading"
+                  (click)="onSave()">
             <mat-progress-spinner *ngIf="isLoading" diameter="20" mode="indeterminate">
             </mat-progress-spinner>
             <span *ngIf="!isLoading">Save Changes</span>
@@ -351,7 +354,9 @@ export class IncomeManagementModalComponent implements OnInit, OnDestroy {
     private fb: FormBuilder,
     private dialogRef: MatDialogRef<IncomeManagementModalComponent>,
     @Inject(MAT_DIALOG_DATA) public data: IncomeManagementDialogData,
-    private incomeManagementService: IncomeManagementService
+    private incomeManagementService: IncomeManagementService,
+    private apiService: ApiService,
+    private authService: AuthService
   ) {
     this.incomeForm = this.fb.group({
       incomeSources: this.fb.array([])
@@ -359,6 +364,7 @@ export class IncomeManagementModalComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    console.log('IncomeManagementModal: Component initialized - NEW VERSION WITH PROFILE UPDATE');
     this.initializeForm();
   }
 
@@ -450,6 +456,10 @@ export class IncomeManagementModalComponent implements OnInit, OnDestroy {
   }
 
   onSave(): void {
+    console.log('IncomeManagementModal: onSave() called');
+    console.log('IncomeManagementModal: Form valid?', this.incomeForm.valid);
+    console.log('IncomeManagementModal: Is loading?', this.isLoading);
+    
     if (this.incomeForm.valid && !this.isLoading) {
       this.isLoading = true;
       
@@ -457,6 +467,7 @@ export class IncomeManagementModalComponent implements OnInit, OnDestroy {
       const requests: any[] = [];
 
       console.log('IncomeManagementModal: Saving income sources:', sources);
+      console.log('IncomeManagementModal: Number of sources to save:', sources.length);
 
       // Process each income source
       sources.forEach((source: any) => {
@@ -490,8 +501,53 @@ export class IncomeManagementModalComponent implements OnInit, OnDestroy {
         ).subscribe({
           next: (results) => {
             console.log('IncomeManagementModal: Save successful, results:', results);
-            this.isLoading = false;
-            this.dialogRef.close({ type: 'save' } as IncomeManagementDialogResult);
+            
+            // Calculate total monthly income from all sources
+            const totalMonthlyIncome = this.getTotalMonthlyIncome();
+            
+            // Get current user to preserve other profile fields
+            const currentUser = this.authService.getCurrentUser();
+            
+            // Update user's monthly income in profile, preserving other fields
+            const profileUpdateRequest = {
+              monthlyIncome: totalMonthlyIncome,
+              studentLoanPayment: currentUser?.studentLoanPayment || 0,
+              studentLoanBalance: currentUser?.studentLoanBalance || 0
+            };
+            
+            console.log('IncomeManagementModal: Updating user monthly income to:', totalMonthlyIncome);
+            
+            this.apiService.put('Users/profile', profileUpdateRequest).pipe(
+              takeUntil(this.destroy$)
+            ).subscribe({
+              next: (updatedUser) => {
+                console.log('IncomeManagementModal: User profile updated successfully');
+                
+                // Refresh current user data to update auth service
+                this.authService.refreshCurrentUser().pipe(
+                  takeUntil(this.destroy$)
+                ).subscribe({
+                  next: (refreshedUser) => {
+                    console.log('IncomeManagementModal: User data refreshed in auth service');
+                    console.log('IncomeManagementModal: Refreshed user monthly income:', refreshedUser.monthlyIncome);
+                    this.isLoading = false;
+                    this.dialogRef.close({ type: 'save' } as IncomeManagementDialogResult);
+                  },
+                  error: (refreshError) => {
+                    console.error('Failed to refresh user data:', refreshError);
+                    this.isLoading = false;
+                    // Still close the dialog as the main operation succeeded
+                    this.dialogRef.close({ type: 'save' } as IncomeManagementDialogResult);
+                  }
+                });
+              },
+              error: (profileError) => {
+                console.error('Failed to update user profile:', profileError);
+                this.isLoading = false;
+                // Still close the dialog as the main operation succeeded
+                this.dialogRef.close({ type: 'save' } as IncomeManagementDialogResult);
+              }
+            });
           },
           error: (error) => {
             console.error('Failed to save income sources:', error);
@@ -503,8 +559,51 @@ export class IncomeManagementModalComponent implements OnInit, OnDestroy {
           }
         });
       } else {
-        this.isLoading = false;
-        this.dialogRef.close({ type: 'save' } as IncomeManagementDialogResult);
+        // No income sources to save, but still update user's monthly income to 0
+        const totalMonthlyIncome = this.getTotalMonthlyIncome();
+        
+        // Get current user to preserve other profile fields
+        const currentUser = this.authService.getCurrentUser();
+        
+        const profileUpdateRequest = {
+          monthlyIncome: totalMonthlyIncome,
+          studentLoanPayment: currentUser?.studentLoanPayment || 0,
+          studentLoanBalance: currentUser?.studentLoanBalance || 0
+        };
+        
+        console.log('IncomeManagementModal: No income sources, updating user monthly income to:', totalMonthlyIncome);
+        
+        this.apiService.put('Users/profile', profileUpdateRequest).pipe(
+          takeUntil(this.destroy$)
+        ).subscribe({
+          next: (updatedUser) => {
+            console.log('IncomeManagementModal: User profile updated successfully');
+            
+            // Refresh current user data to update auth service
+            this.authService.refreshCurrentUser().pipe(
+              takeUntil(this.destroy$)
+            ).subscribe({
+              next: (refreshedUser) => {
+                console.log('IncomeManagementModal: User data refreshed in auth service');
+                console.log('IncomeManagementModal: Refreshed user monthly income:', refreshedUser.monthlyIncome);
+                this.isLoading = false;
+                this.dialogRef.close({ type: 'save' } as IncomeManagementDialogResult);
+              },
+              error: (refreshError) => {
+                console.error('Failed to refresh user data:', refreshError);
+                this.isLoading = false;
+                // Still close the dialog as the main operation succeeded
+                this.dialogRef.close({ type: 'save' } as IncomeManagementDialogResult);
+              }
+            });
+          },
+          error: (profileError) => {
+            console.error('Failed to update user profile:', profileError);
+            this.isLoading = false;
+            // Still close the dialog as the main operation succeeded
+            this.dialogRef.close({ type: 'save' } as IncomeManagementDialogResult);
+          }
+        });
       }
     }
   }

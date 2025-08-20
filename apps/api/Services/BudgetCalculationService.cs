@@ -229,8 +229,8 @@ public class BudgetCalculationService : IBudgetCalculationService
         {
             <= 0.5m => BudgetHealthStatusEnum.Excellent,
             <= 0.75m => BudgetHealthStatusEnum.Good,
-            <= 0.9m => BudgetHealthStatusEnum.Attention,
-            _ => BudgetHealthStatusEnum.Concern
+            <= 1.0m => BudgetHealthStatusEnum.Attention,  // Changed from < 1.0m to <= 1.0m
+            _ => BudgetHealthStatusEnum.Concern  // Only when spending > limit (over 100%)
         };
     }
 
@@ -254,10 +254,10 @@ public class BudgetCalculationService : IBudgetCalculationService
         {
             BudgetHealthStatusEnum.Excellent => $"Great choice! You're staying well within your {categoryType} budget!",
             BudgetHealthStatusEnum.Good => $"Looking good! You have ${Math.Abs(remaining):N2} left in this {categoryType} category.",
-            BudgetHealthStatusEnum.Attention => $"This will put you close to your {categoryType} limit. You've got this!",
-            BudgetHealthStatusEnum.Concern => remaining >= 0 
-                ? $"This maxes out your {categoryType} budget, but you're right on track!"
-                : $"This goes ${Math.Abs(remaining):N2} over your {categoryType} budget, but that's okay! Let's adjust together.",
+            BudgetHealthStatusEnum.Attention => remaining == 0 
+                ? $"This perfectly uses your full {categoryType} budget - well planned!"
+                : $"This will put you close to your {categoryType} limit. You've got this!",
+            BudgetHealthStatusEnum.Concern => $"This goes ${Math.Abs(remaining):N2} over your {categoryType} budget, but that's okay! Let's adjust together.",
             _ => "Budget impact calculated successfully."
         };
     }

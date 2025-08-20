@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { Subject, takeUntil, combineLatest } from 'rxjs';
@@ -59,7 +59,8 @@ export class BudgetCategoriesComponent implements OnInit, OnDestroy {
     private authService: AuthService,
     private dialog: MatDialog,
     private snackBar: MatSnackBar,
-    private router: Router
+    private router: Router,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
@@ -98,8 +99,11 @@ export class BudgetCategoriesComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe((user: User | null) => {
         if (user) {
+          console.log('BudgetCategories: User income updated to:', user.monthlyIncome);
           this.userIncome = user.monthlyIncome;
           this.updateBudgetCalculations();
+          // Force change detection to update budget health status
+          this.cdr.detectChanges();
         }
       });
   }

@@ -466,6 +466,7 @@ export class BudgetCategorySummaryComponent {
   }
 
   getHealthStatusText(status: string): string {
+    console.log('getHealthStatusText called with status:', status);
     switch (status) {
       case 'excellent': return 'Excellent';
       case 'good': return 'Good';

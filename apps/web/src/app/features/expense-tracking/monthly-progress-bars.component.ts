@@ -4,7 +4,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject, takeUntil, interval, startWith } from 'rxjs';
 import { MonthlyProgressData, CATEGORY_COLORS, CATEGORY_ICONS } from '../../../../../../shared/src/models';
 import { BudgetImpactService } from './services/budget-impact.service';
 
@@ -315,6 +315,14 @@ export class MonthlyProgressBarsComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadProgressData();
+    
+    // Auto-refresh progress data every 30 seconds to catch expense updates
+    interval(30000)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        console.log('MonthlyProgressBars: Auto-refreshing progress data');
+        this.loadProgressData();
+      });
   }
 
   ngOnDestroy(): void {
@@ -327,6 +335,7 @@ export class MonthlyProgressBarsComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (data) => {
+          console.log('MonthlyProgressBars: Progress data received:', data.length, 'categories');
           this.progressData = data.sort((a, b) => {
             // Sort essential categories first, then by health status (worst first for attention)
             if (a.isEssential !== b.isEssential) {
@@ -340,10 +349,17 @@ export class MonthlyProgressBarsComponent implements OnInit, OnDestroy {
           this.isLoading = false;
         },
         error: (error) => {
-          console.error('Error loading progress data:', error);
+          console.error('MonthlyProgressBars: Error loading progress data:', error);
           this.isLoading = false;
         }
       });
+  }
+
+  // Public method to manually refresh progress data
+  refreshProgressData(): void {
+    console.log('MonthlyProgressBars: Manually refreshing progress data');
+    this.isLoading = true;
+    this.loadProgressData();
   }
 
   trackByCategory(index: number, category: MonthlyProgressData): string {

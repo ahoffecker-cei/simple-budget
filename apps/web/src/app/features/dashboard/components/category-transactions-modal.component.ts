@@ -689,7 +689,7 @@ export class CategoryTransactionsModalComponent implements OnInit {
     switch (status) {
       case 'excellent': return 'Excellent';
       case 'good': return 'Good';
-      case 'attention': return 'Needs Attention';
+      case 'attention': return 'On Target';
       case 'concern': return 'Over Budget';
       default: return 'Unknown';
     }

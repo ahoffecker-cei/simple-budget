@@ -18,17 +18,20 @@ public class ExpensesController : ControllerBase
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IBudgetCalculationService _budgetCalculationService;
     private readonly ISavingsGoalService _savingsGoalService;
+    private readonly IDashboardService _dashboardService;
 
     public ExpensesController(
         ApplicationDbContext context,
         UserManager<ApplicationUser> userManager,
         IBudgetCalculationService budgetCalculationService,
-        ISavingsGoalService savingsGoalService)
+        ISavingsGoalService savingsGoalService,
+        IDashboardService dashboardService)
     {
         _context = context;
         _userManager = userManager;
         _budgetCalculationService = budgetCalculationService;
         _savingsGoalService = savingsGoalService;
+        _dashboardService = dashboardService;
     }
 
     [HttpPost]
@@ -97,8 +100,10 @@ public class ExpensesController : ControllerBase
             await _savingsGoalService.UpdateSavingsGoalProgressAsync(userId, request.SavingsGoalId.Value, request.Amount);
         }
 
-        // Invalidate budget cache after expense creation
+        // Invalidate all caches after expense creation for immediate updates
         await _budgetCalculationService.InvalidateBudgetCacheAsync(userId, request.CategoryId);
+        await _budgetCalculationService.InvalidateBudgetCacheAsync(userId); // Also clear general budget caches
+        await _dashboardService.InvalidateDashboardCacheAsync(userId); // Clear dashboard caches
 
         // Calculate budget impact for the current month using the new service
         var budgetImpact = await _budgetCalculationService.GetBudgetImpactPreviewAsync(userId, request.CategoryId, 0, expenseDate);
@@ -295,8 +300,10 @@ public class ExpensesController : ControllerBase
         _context.Expenses.Remove(expense);
         await _context.SaveChangesAsync();
 
-        // Invalidate budget cache after expense deletion
+        // Invalidate all caches after expense deletion for immediate updates
         await _budgetCalculationService.InvalidateBudgetCacheAsync(userId, expense.CategoryId);
+        await _budgetCalculationService.InvalidateBudgetCacheAsync(userId); // Also clear general budget caches
+        await _dashboardService.InvalidateDashboardCacheAsync(userId); // Clear dashboard caches
 
         return NoContent();
     }
