@@ -2,8 +2,8 @@
   "name": "@simple-budget/shared",
   "version": "1.0.0",
   "description": "Shared TypeScript interfaces and constants for Simple Budget",
-  "main": "src/index.ts",
-  "types": "src/index.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "private": true,
   "scripts": {
     "build": "tsc",

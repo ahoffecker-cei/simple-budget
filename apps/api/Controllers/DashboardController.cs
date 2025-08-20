@@ -96,6 +96,30 @@ public class DashboardController : ControllerBase
         return Ok(overview);
     }
 
+    [HttpGet("enhanced-overview")]
+    public async Task<ActionResult<EnhancedDashboardResponseDto>> GetEnhancedOverview()
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId))
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            Console.WriteLine($"GetEnhancedOverview called for user: {userId}");
+            var enhancedOverview = await _dashboardService.GetEnhancedOverviewAsync(userId);
+            Console.WriteLine($"GetEnhancedOverview successful for user: {userId}");
+            return Ok(enhancedOverview);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"GetEnhancedOverview error for user {userId}: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            return StatusCode(500, "An error occurred while retrieving enhanced dashboard data.");
+        }
+    }
+
     [HttpGet("category/{categoryId}/expenses")]
     public async Task<ActionResult<ExpenseWithCategoryDto[]>> GetCategoryExpenses(
         Guid categoryId, 

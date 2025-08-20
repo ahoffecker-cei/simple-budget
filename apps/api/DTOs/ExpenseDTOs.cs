@@ -13,6 +13,8 @@ public class ExpenseDto
     public DateTime ExpenseDate { get; set; }
     public DateTime CreatedAt { get; set; }
     public bool IsEssential { get; set; }
+    public Guid? SavingsGoalId { get; set; }
+    public string? SavingsGoalName { get; set; }
 }
 
 public class CreateExpenseRequest
@@ -28,6 +30,9 @@ public class CreateExpenseRequest
     public string? Description { get; set; }
     
     public DateTime? ExpenseDate { get; set; }
+    
+    // Optional savings goal tagging
+    public Guid? SavingsGoalId { get; set; }
 }
 
 public class ExpenseWithBudgetImpact

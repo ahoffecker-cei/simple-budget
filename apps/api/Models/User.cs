@@ -22,6 +22,8 @@ public class ApplicationUser : IdentityUser
     public ICollection<Account> Accounts { get; set; } = new List<Account>();
     public ICollection<StudentLoan> StudentLoans { get; set; } = new List<StudentLoan>();
     public ICollection<BudgetCategory> BudgetCategories { get; set; } = new List<BudgetCategory>();
+    public ICollection<IncomeSource> IncomeSources { get; set; } = new List<IncomeSource>();
+    public ICollection<SavingsGoal> SavingsGoals { get; set; } = new List<SavingsGoal>();
 }
 
 // Keep original User class for API responses and shared models

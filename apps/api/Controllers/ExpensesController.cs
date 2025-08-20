@@ -17,15 +17,18 @@ public class ExpensesController : ControllerBase
     private readonly ApplicationDbContext _context;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IBudgetCalculationService _budgetCalculationService;
+    private readonly ISavingsGoalService _savingsGoalService;
 
     public ExpensesController(
         ApplicationDbContext context,
         UserManager<ApplicationUser> userManager,
-        IBudgetCalculationService budgetCalculationService)
+        IBudgetCalculationService budgetCalculationService,
+        ISavingsGoalService savingsGoalService)
     {
         _context = context;
         _userManager = userManager;
         _budgetCalculationService = budgetCalculationService;
+        _savingsGoalService = savingsGoalService;
     }
 
     [HttpPost]
@@ -51,6 +54,19 @@ public class ExpensesController : ControllerBase
             return BadRequest("Invalid category ID or category does not belong to user.");
         }
 
+        // Validate savings goal if provided
+        SavingsGoal? savingsGoal = null;
+        if (request.SavingsGoalId.HasValue)
+        {
+            savingsGoal = await _context.SavingsGoals
+                .FirstOrDefaultAsync(sg => sg.SavingsGoalId == request.SavingsGoalId.Value && sg.UserId == userId);
+
+            if (savingsGoal == null)
+            {
+                return BadRequest("Invalid savings goal ID or savings goal does not belong to user.");
+            }
+        }
+
         // Set expense date to today if not provided
         var expenseDate = request.ExpenseDate ?? DateTime.Today;
 
@@ -68,11 +84,18 @@ public class ExpensesController : ControllerBase
             Amount = request.Amount,
             Description = request.Description,
             ExpenseDate = expenseDate,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            SavingsGoalId = request.SavingsGoalId
         };
 
         _context.Expenses.Add(expense);
         await _context.SaveChangesAsync();
+
+        // If expense is tagged to a savings goal, update the savings goal progress
+        if (request.SavingsGoalId.HasValue)
+        {
+            await _savingsGoalService.UpdateSavingsGoalProgressAsync(userId, request.SavingsGoalId.Value, request.Amount);
+        }
 
         // Invalidate budget cache after expense creation
         await _budgetCalculationService.InvalidateBudgetCacheAsync(userId, request.CategoryId);
@@ -92,7 +115,9 @@ public class ExpensesController : ControllerBase
             Description = expense.Description,
             ExpenseDate = expense.ExpenseDate,
             CreatedAt = expense.CreatedAt,
-            IsEssential = category.IsEssential
+            IsEssential = category.IsEssential,
+            SavingsGoalId = expense.SavingsGoalId,
+            SavingsGoalName = savingsGoal?.Name
         };
 
         var result = new ExpenseWithBudgetImpact
@@ -156,6 +181,7 @@ public class ExpensesController : ControllerBase
 
         var expense = await _context.Expenses
             .Include(e => e.BudgetCategory)
+            .Include(e => e.SavingsGoal)
             .Where(e => e.ExpenseId == id && e.UserId == userId)
             .Select(e => new ExpenseDto
             {
@@ -167,7 +193,9 @@ public class ExpensesController : ControllerBase
                 Description = e.Description,
                 ExpenseDate = e.ExpenseDate,
                 CreatedAt = e.CreatedAt,
-                IsEssential = e.BudgetCategory.IsEssential
+                IsEssential = e.BudgetCategory.IsEssential,
+                SavingsGoalId = e.SavingsGoalId,
+                SavingsGoalName = e.SavingsGoal != null ? e.SavingsGoal.Name : null
             })
             .FirstOrDefaultAsync();
 
@@ -194,6 +222,7 @@ public class ExpensesController : ControllerBase
 
         var query = _context.Expenses
             .Include(e => e.BudgetCategory)
+            .Include(e => e.SavingsGoal)
             .Where(e => e.UserId == userId);
 
         // Apply filters
@@ -229,7 +258,9 @@ public class ExpensesController : ControllerBase
                 Description = e.Description,
                 ExpenseDate = e.ExpenseDate,
                 CreatedAt = e.CreatedAt,
-                IsEssential = e.BudgetCategory.IsEssential
+                IsEssential = e.BudgetCategory.IsEssential,
+                SavingsGoalId = e.SavingsGoalId,
+                SavingsGoalName = e.SavingsGoal != null ? e.SavingsGoal.Name : null
             })
             .ToListAsync();
 

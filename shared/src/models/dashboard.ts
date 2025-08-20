@@ -1,4 +1,6 @@
 import { Account } from './account';
+import { IncomeManagementResponse } from './income-management';
+import { SavingsGoalProgress } from './savings-goals';
 
 export interface DashboardResponse {
   overallHealthStatus: 'excellent' | 'good' | 'attention' | 'concern';
@@ -77,6 +79,8 @@ export interface ExpenseWithCategory {
   isEssential: boolean;
   colorId: string;
   iconId: string;
+  savingsGoalId?: string;
+  savingsGoalName?: string;
 }
 
 export interface MonthlyProgressSummary {
@@ -86,4 +90,16 @@ export interface MonthlyProgressSummary {
   daysRemainingInMonth: number;
   projectedMonthlySpending: number;
   onTrackForMonth: boolean;
+}
+
+// Enhanced Dashboard Response for Story 3.4
+export interface EnhancedDashboardResponse {
+  accounts: Account[];
+  budgetSummary: BudgetCategorySummary[];
+  recentExpenses: ExpenseWithCategory[];
+  monthlyProgress: MonthlyProgressSummary;
+  incomeManagement: IncomeManagementResponse;
+  savingsGoals: SavingsGoalProgress[];
+  overallHealthStatus: 'excellent' | 'good' | 'attention' | 'concern';
+  overallHealthMessage: string;
 }

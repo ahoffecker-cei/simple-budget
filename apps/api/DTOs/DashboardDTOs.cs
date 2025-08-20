@@ -108,3 +108,16 @@ public class MonthlyProgressSummaryDto
     public decimal ProjectedMonthlySpending { get; set; }
     public bool OnTrackForMonth { get; set; }
 }
+
+// Enhanced Dashboard Response for Story 3.4
+public class EnhancedDashboardResponseDto
+{
+    public List<AccountDto> Accounts { get; set; } = new();
+    public List<BudgetCategorySummaryDto> BudgetSummary { get; set; } = new();
+    public List<ExpenseWithCategoryDto> RecentExpenses { get; set; } = new();
+    public MonthlyProgressSummaryDto MonthlyProgress { get; set; } = new();
+    public IncomeManagementResponseDto IncomeManagement { get; set; } = new();
+    public List<SavingsGoalProgressDto> SavingsGoals { get; set; } = new();
+    public string OverallHealthStatus { get; set; } = string.Empty;
+    public string OverallHealthMessage { get; set; } = string.Empty;
+}

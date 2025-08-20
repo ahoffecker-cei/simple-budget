@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
-import { DashboardResponse, Account, CreateAccountRequest, UpdateAccountRequest, DashboardOverviewResponse, ExpenseWithCategory } from '@simple-budget/shared';
+import { DashboardResponse, Account, CreateAccountRequest, UpdateAccountRequest, DashboardOverviewResponse, ExpenseWithCategory, EnhancedDashboardResponse } from '@simple-budget/shared';
 import { environment } from '../../environments/environment';
 
 @Injectable({
@@ -64,6 +64,20 @@ export class DashboardService {
     return this.http.get<ExpenseWithCategory[]>(`${this.apiUrl}/category/${categoryId}/expenses${params}`).pipe(
       tap(response => {
         console.log('DashboardService: Category expenses received', response.length, 'expenses');
+      })
+    );
+  }
+
+  // Enhanced Dashboard API for Story 3.4
+  getEnhancedOverview(): Observable<EnhancedDashboardResponse> {
+    console.log('DashboardService: Making API call to', `${this.apiUrl}/enhanced-overview`);
+    return this.http.get<EnhancedDashboardResponse>(`${this.apiUrl}/enhanced-overview`).pipe(
+      tap(response => {
+        console.log('DashboardService: Enhanced overview API response received', response);
+        console.log('Budget summary in response:', response.budgetSummary?.length || 0);
+        console.log('Recent expenses in response:', response.recentExpenses?.length || 0);
+        console.log('Income management:', response.incomeManagement);
+        console.log('Savings goals:', response.savingsGoals?.length || 0);
       })
     );
   }

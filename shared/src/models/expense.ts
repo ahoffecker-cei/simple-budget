@@ -8,6 +8,7 @@ export interface Expense {
   expenseDate: string;
   createdAt: string;
   isEssential: boolean;
+  savingsGoalId?: string;
 }
 
 export interface CreateExpenseRequest {
@@ -15,6 +16,7 @@ export interface CreateExpenseRequest {
   amount: number;
   description?: string;
   expenseDate?: string;
+  savingsGoalId?: string;
 }
 
 export interface ExpenseWithBudgetImpact {

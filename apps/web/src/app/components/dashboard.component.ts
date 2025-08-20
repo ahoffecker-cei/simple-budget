@@ -12,13 +12,19 @@ import { AuthService } from '../services/auth.service';
 import { DashboardService } from '../services/dashboard.service';
 import { ClassificationSuggestionService } from '../features/budget-setup/services/classification-suggestion.service';
 import { StudentLoansService } from '../services/student-loans.service';
-import { User, StudentLoanSummary, DashboardResponse, Account, BudgetHealthByClassification, DashboardOverviewResponse } from '@simple-budget/shared';
+import { User, StudentLoanSummary, DashboardResponse, Account, BudgetHealthByClassification, DashboardOverviewResponse, EnhancedDashboardResponse } from '@simple-budget/shared';
 import { LoanBreakdownModalComponent } from './loan-breakdown-modal.component';
 import { AccountFormDialogComponent, AccountFormData } from './account-form-dialog.component';
 import { SmartSavingsGoalDialogComponent, SavingsGoalData, SavingsGoalResult } from './smart-savings-goal-dialog.component';
 import { FinancialHealthAnswerComponent } from '../features/dashboard/components/financial-health-answer.component';
 import { BudgetCategorySummaryComponent } from '../features/dashboard/components/budget-category-summary.component';
 import { MonthlyProgressOverviewComponent } from '../features/dashboard/components/monthly-progress-overview.component';
+import { EnhancedRecentExpensesComponent } from '../features/dashboard/components/enhanced-recent-expenses.component';
+import { EnhancedSavingsGoalsComponent } from '../features/dashboard/components/enhanced-savings-goals.component';
+import { IncomeManagementModalComponent, IncomeManagementDialogData } from '../features/dashboard/components/income-management-modal.component';
+import { SavingsGoalsManagementModalComponent, SavingsGoalsDialogData } from '../features/dashboard/components/savings-goals-management-modal.component';
+import { IncomeManagementService } from '../services/income-management.service';
+import { SavingsGoalsService } from '../services/savings-goals.service';
 
 @Component({
   selector: 'app-dashboard',
@@ -31,7 +37,9 @@ import { MonthlyProgressOverviewComponent } from '../features/dashboard/componen
     MatCardModule,
     FinancialHealthAnswerComponent,
     BudgetCategorySummaryComponent,
-    MonthlyProgressOverviewComponent
+    MonthlyProgressOverviewComponent,
+    EnhancedRecentExpensesComponent,
+    EnhancedSavingsGoalsComponent
   ],
   template: `
     <div class="dashboard-layout">
@@ -71,8 +79,8 @@ import { MonthlyProgressOverviewComponent } from '../features/dashboard/componen
                     <span class="net-worth-label">Total Net Worth</span>
                     <mat-icon class="net-worth-icon-small">account_balance_wallet</mat-icon>
                   </div>
-                  <div class="net-worth-amount excellent">
-                    {{ (dashboardData?.totalNetWorth || 45000) | currency }}
+                  <div class="net-worth-amount" [class]="getNetWorthClass()">
+                    {{ (dashboardData?.totalNetWorth || 0) | currency }}
                   </div>
                 </div>
               </mat-card>
@@ -81,35 +89,35 @@ import { MonthlyProgressOverviewComponent } from '../features/dashboard/componen
               <mat-card class="accounts-card-integrated card-secondary">
                 <div class="card-header-compact">
                   <h3>Account Balances</h3>
-                  <span class="last-updated">Sample Data</span>
+                  <button mat-icon-button class="add-account-btn" (click)="openAddAccountDialog()" title="Add Account">
+                    <mat-icon>add</mat-icon>
+                  </button>
                 </div>
                 
-                <div class="accounts-grid-compact">
-                  <!-- Sample Account Items with compact styling -->
-                  <div class="account-item account-type-checking">
+                <div class="accounts-grid-compact" *ngIf="accounts && accounts.length > 0; else noAccountsState">
+                  <div class="account-item" 
+                       *ngFor="let account of accounts"
+                       [class]="'account-type-' + account.accountType">
                     <div class="account-info">
-                      <span class="account-label">Primary Checking</span>
-                      <span class="account-balance positive">$5,240.50</span>
+                      <span class="account-label">{{account.accountName}}</span>
+                      <span class="account-balance" [class]="getBalanceClass(account.currentBalance)">
+                        {{account.currentBalance | currency}}
+                      </span>
                     </div>
-                    <mat-icon class="account-icon-small">account_balance</mat-icon>
-                  </div>
-                  
-                  <div class="account-item account-type-savings">
-                    <div class="account-info">
-                      <span class="account-label">Emergency Fund</span>
-                      <span class="account-balance positive">$12,500.00</span>
-                    </div>
-                    <mat-icon class="account-icon-small">savings</mat-icon>
-                  </div>
-                  
-                  <div class="account-item account-type-retirement">
-                    <div class="account-info">
-                      <span class="account-label">401(k)</span>
-                      <span class="account-balance positive">$27,260.00</span>
-                    </div>
-                    <mat-icon class="account-icon-small">elderly</mat-icon>
+                    <mat-icon class="account-icon-small">{{getAccountTypeIcon(account.accountType)}}</mat-icon>
                   </div>
                 </div>
+
+                <ng-template #noAccountsState>
+                  <div class="empty-accounts-state">
+                    <mat-icon class="empty-icon">account_balance_wallet</mat-icon>
+                    <p class="empty-message">No accounts added yet</p>
+                    <button class="add-first-account-btn" mat-raised-button color="primary" (click)="openAddAccountDialog()">
+                      <mat-icon>add</mat-icon>
+                      Add Your First Account
+                    </button>
+                  </div>
+                </ng-template>
                 
                 <div class="loading-state" *ngIf="isLoading">
                   <div class="loading-spinner">
@@ -126,30 +134,44 @@ import { MonthlyProgressOverviewComponent } from '../features/dashboard/componen
             <mat-card class="overview-card card-secondary">
               <div class="card-header">
                 <h3>Monthly Overview</h3>
+                <button mat-icon-button class="setup-income-btn" (click)="openIncomeSetupDialog()" title="Set Monthly Income">
+                  <mat-icon>settings</mat-icon>
+                </button>
               </div>
-              <div class="overview-grid">
+              <div class="overview-grid" *ngIf="hasEnhancedMonthlyData(); else noMonthlyDataState">
                 <div class="overview-item income-item">
                   <div class="overview-info">
                     <span class="overview-label">Monthly Income</span>
-                    <span class="overview-amount positive">$6,500.00</span>
+                    <span class="overview-amount positive">{{getEnhancedMonthlyIncome() | currency}}</span>
                   </div>
                   <mat-icon class="overview-icon">trending_up</mat-icon>
                 </div>
                 <div class="overview-item expense-item">
                   <div class="overview-info">
                     <span class="overview-label">Monthly Expenses</span>
-                    <span class="overview-amount neutral">$4,200.00</span>
+                    <span class="overview-amount neutral">{{getMonthlyExpenses() | currency}}</span>
                   </div>
                   <mat-icon class="overview-icon">receipt</mat-icon>
                 </div>
                 <div class="overview-item">
                   <div class="overview-info">
                     <span class="overview-label">Monthly Savings</span>
-                    <span class="overview-amount positive">$2,300.00</span>
+                    <span class="overview-amount" [class]="getMonthlySavingsClass()">{{getMonthlySavings() | currency}}</span>
                   </div>
                   <mat-icon class="overview-icon">savings</mat-icon>
                 </div>
               </div>
+
+              <ng-template #noMonthlyDataState>
+                <div class="empty-monthly-state">
+                  <mat-icon class="empty-icon">trending_up</mat-icon>
+                  <p class="empty-message">Set up your monthly income to see overview</p>
+                  <button class="setup-income-first-btn" mat-raised-button color="primary" (click)="openIncomeSetupDialog()">
+                    <mat-icon>add</mat-icon>
+                    Set Monthly Income
+                  </button>
+                </div>
+              </ng-template>
             </mat-card>
           </section>
 
@@ -165,40 +187,12 @@ import { MonthlyProgressOverviewComponent } from '../features/dashboard/componen
             </app-monthly-progress-overview>
           </section>
 
-          <!-- Recent Expenses (Compact - 4 columns) -->
+          <!-- Recent Expenses (Enhanced with Real-Time Updates) -->
           <section class="recent-expenses-section">
-            <mat-card class="expenses-compact-card card-subtle">
-              <div class="card-header-compact">
-                <h3>Recent Expenses</h3>
-                <button mat-button class="view-all-prominent" color="primary">
-                  <mat-icon>arrow_forward</mat-icon>
-                  View All
-                </button>
-              </div>
-              <div class="expenses-compact-list">
-                <!-- Show only 3-4 most recent with category colors -->
-                <div class="expense-item-compact grocery-category">
-                  <mat-icon class="expense-icon">shopping_cart</mat-icon>
-                  <span class="expense-desc">Grocery Store</span>
-                  <span class="expense-amount">-$67.45</span>
-                </div>
-                <div class="expense-item-compact transportation-category">
-                  <mat-icon class="expense-icon">local_gas_station</mat-icon>
-                  <span class="expense-desc">Gas Station</span>
-                  <span class="expense-amount">-$45.20</span>
-                </div>
-                <div class="expense-item-compact dining-category">
-                  <mat-icon class="expense-icon">restaurant</mat-icon>
-                  <span class="expense-desc">Restaurant</span>
-                  <span class="expense-amount">-$23.75</span>
-                </div>
-                <div class="expense-item-compact shopping-category">
-                  <mat-icon class="expense-icon">shopping_bag</mat-icon>
-                  <span class="expense-desc">Online Purchase</span>
-                  <span class="expense-amount">-$89.99</span>
-                </div>
-              </div>
-            </mat-card>
+            <app-enhanced-recent-expenses 
+              [recentExpenses]="enhancedDashboard?.recentExpenses || []"
+              [isLoading]="isLoading">
+            </app-enhanced-recent-expenses>
           </section>
 
           <!-- Student Loans Section -->
@@ -248,44 +242,14 @@ import { MonthlyProgressOverviewComponent } from '../features/dashboard/componen
             </mat-card>
           </section>
 
-          <!-- Enhanced Savings Goals (4 columns) -->
+          <!-- Enhanced Savings Goals (Real-Time with Backend Integration) -->
           <section class="savings-goals-section">
-            <mat-card class="goals-enhanced-card card-secondary">
-              <div class="card-header">
-                <h3>Savings Goals</h3>
-                <button mat-icon-button class="add-goal-btn" (click)="openSavingsGoalDialog()">
-                  <mat-icon>add</mat-icon>
-                </button>
-              </div>
-              <div class="savings-goals-content">
-                <!-- Dynamic goals display -->
-                <div class="goal-item" *ngFor="let goal of savingsGoals">
-                  <div class="goal-info">
-                    <span class="goal-name">{{goal.goalName}}</span>
-                    <span class="goal-progress">\${{(goal.currentProgress || 0) | number:'1.0-0'}} / \${{goal.targetAmount | number:'1.0-0'}}</span>
-                  </div>
-                  <div class="goal-monthly">
-                    <span class="monthly-target">\${{goal.monthlyContribution | number:'1.0-0'}}/month</span>
-                    <div class="progress-bar">
-                      <div class="progress-fill" [style.width.%]="getGoalProgressPercentage(goal)"></div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Empty state when no goals -->
-                <div class="empty-goals-state" *ngIf="savingsGoals.length === 0">
-                  <mat-icon class="empty-icon">flag</mat-icon>
-                  <p>No savings goals yet</p>
-                  <p class="empty-subtitle">Create your first goal to start tracking your progress!</p>
-                </div>
-
-                <!-- Add new goal option -->
-                <button class="add-goal-button" mat-stroked-button (click)="openSavingsGoalDialog()">
-                  <mat-icon>add</mat-icon>
-                  Add New Goal
-                </button>
-              </div>
-            </mat-card>
+            <app-enhanced-savings-goals 
+              [savingsGoals]="enhancedDashboard?.savingsGoals || []"
+              [isLoading]="isLoading"
+              (manageGoals)="openSavingsGoalsManagementDialog()"
+              (addGoal)="openSavingsGoalsManagementDialog()">
+            </app-enhanced-savings-goals>
           </section>
 
 
@@ -800,13 +764,25 @@ import { MonthlyProgressOverviewComponent } from '../features/dashboard/componen
       background: white;
       border-radius: var(--border-radius-sm);
       border: 1px solid var(--color-neutral-200);
+      transition: all 0.2s ease-out;
+    }
+
+    .goal-item:hover {
+      box-shadow: var(--shadow-sm);
+    }
+
+    .goal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: var(--spacing-xs);
     }
 
     .goal-info {
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: var(--spacing-xs);
+      flex-direction: column;
+      gap: 4px;
+      flex: 1;
     }
 
     .goal-name {
@@ -1140,12 +1116,169 @@ import { MonthlyProgressOverviewComponent } from '../features/dashboard/componen
         height: 16px !important;
       }
     }
+
+    // Empty Account State Styles
+    .empty-accounts-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: var(--spacing-md);
+      padding: var(--spacing-lg) var(--spacing-sm);
+    }
+
+    .empty-accounts-state .empty-icon {
+      font-size: 48px !important;
+      width: 48px !important;
+      height: 48px !important;
+      color: var(--color-neutral-400);
+    }
+
+    .empty-accounts-state .empty-message {
+      font-size: 0.9rem;
+      color: var(--color-neutral-600);
+      margin: 0;
+    }
+
+    .add-first-account-btn {
+      background-color: var(--color-primary);
+      
+      mat-icon {
+        font-size: 16px !important;
+        width: 16px !important;
+        height: 16px !important;
+      }
+    }
+
+    .add-account-btn {
+      width: 32px;
+      height: 32px;
+      color: var(--color-primary);
+      
+      &:hover {
+        background-color: rgba(90, 155, 212, 0.1);
+      }
+      
+      mat-icon {
+        font-size: 18px !important;
+        width: 18px !important;
+        height: 18px !important;
+      }
+    }
+
+    // Empty Monthly Data State Styles
+    .empty-monthly-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: var(--spacing-md);
+      padding: var(--spacing-lg) var(--spacing-sm);
+    }
+
+    .empty-monthly-state .empty-icon {
+      font-size: 48px !important;
+      width: 48px !important;
+      height: 48px !important;
+      color: var(--color-neutral-400);
+    }
+
+    .empty-monthly-state .empty-message {
+      font-size: 0.9rem;
+      color: var(--color-neutral-600);
+      margin: 0;
+    }
+
+    .setup-income-first-btn {
+      background-color: var(--color-primary);
+      
+      mat-icon {
+        font-size: 16px !important;
+        width: 16px !important;
+        height: 16px !important;
+      }
+    }
+
+    .setup-income-btn {
+      width: 32px;
+      height: 32px;
+      color: var(--color-primary);
+      
+      &:hover {
+        background-color: rgba(90, 155, 212, 0.1);
+      }
+      
+      mat-icon {
+        font-size: 18px !important;
+        width: 18px !important;
+        height: 18px !important;
+      }
+    }
+
+    // Empty Expenses State Styles
+    .empty-expenses-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: var(--spacing-md);
+      padding: var(--spacing-lg) var(--spacing-sm);
+    }
+
+    .empty-expenses-state .empty-icon {
+      font-size: 48px !important;
+      width: 48px !important;
+      height: 48px !important;
+      color: var(--color-neutral-400);
+    }
+
+    .empty-expenses-state .empty-message {
+      font-size: 0.9rem;
+      color: var(--color-neutral-600);
+      margin: 0;
+    }
+
+    .log-first-expense-btn {
+      background-color: var(--color-primary);
+      
+      mat-icon {
+        font-size: 16px !important;
+        width: 16px !important;
+        height: 16px !important;
+      }
+    }
+
+    // Delete Goal Button Styles
+    .delete-goal-btn {
+      width: 28px;
+      height: 28px;
+      color: var(--color-neutral-400);
+      opacity: 0;
+      transition: all 0.2s ease-out;
+      flex-shrink: 0;
+      
+      &:hover {
+        color: var(--color-warning);
+        background-color: rgba(249, 199, 79, 0.1);
+      }
+      
+      mat-icon {
+        font-size: 16px !important;
+        width: 16px !important;
+        height: 16px !important;
+      }
+    }
+
+    .goal-item:hover .delete-goal-btn {
+      opacity: 1;
+    }
   `]
 })
 export class DashboardComponent implements OnInit, OnDestroy {
   user: User | null = null;
   dashboardData: DashboardResponse | null = null;
   dashboardOverview: DashboardOverviewResponse | null = null;
+  enhancedDashboard: EnhancedDashboardResponse | null = null;
   accounts: Account[] = [];
   studentLoanSummary: StudentLoanSummary | null = null;
   classificationHealth: BudgetHealthByClassification | null = null;
@@ -1161,6 +1294,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     private dashboardService: DashboardService,
     private classificationService: ClassificationSuggestionService,
     private studentLoansService: StudentLoansService,
+    private incomeManagementService: IncomeManagementService,
+    private savingsGoalsService: SavingsGoalsService,
     private dialog: MatDialog,
     private router: Router,
     private cdr: ChangeDetectorRef
@@ -1171,6 +1306,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.user = user;
       if (user) {
         this.loadDashboardData();
+        this.loadEnhancedDashboardData();
         this.loadClassificationHealth();
         this.loadStudentLoanData();
         this.loadSavingsGoals();
@@ -1212,9 +1348,29 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (this.user) {
       console.log('Refreshing all dashboard data...');
       this.loadDashboardData();
+      this.loadEnhancedDashboardData();
       this.loadClassificationHealth();
       this.loadStudentLoanData();
     }
+  }
+
+  loadEnhancedDashboardData(): void {
+    console.log('Loading enhanced dashboard data...');
+    
+    this.dashboardService.getEnhancedOverview().subscribe({
+      next: (enhancedData) => {
+        console.log('Enhanced dashboard data received:', enhancedData);
+        console.log('Income management data:', enhancedData?.incomeManagement);
+        console.log('Total monthly income:', enhancedData?.incomeManagement?.totalMonthlyIncome);
+        this.enhancedDashboard = enhancedData;
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        console.error('Failed to load enhanced dashboard data:', error);
+        this.enhancedDashboard = null;
+        this.cdr.detectChanges();
+      }
+    });
   }
 
   loadDashboardData(): void {
@@ -1560,45 +1716,33 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.router.navigate(['/expense-logging']);
   }
 
-  openSavingsGoalDialog(): void {
-    // Calculate financial data for smart savings dialog
-    const monthlyIncome = this.user?.monthlyIncome || 6500; // Sample data or user income
-    
-    // Calculate total from budget categories (when available)
-    const totalBudgetCategories = this.dashboardOverview?.budgetSummary?.reduce((sum, category) => 
-      sum + (category.monthlyLimit || 0), 0) || 4200; // Sample data
-    
-    // Get student loan payments
-    const totalStudentLoans = this.getTotalLoanPayment();
-    
-    // Calculate available money for savings
-    const availableForSavings = monthlyIncome - totalBudgetCategories - totalStudentLoans;
-
-    const dialogData: SavingsGoalData = {
-      monthlyIncome,
-      totalBudgetCategories,
-      totalStudentLoans,
-      availableForSavings
+  openSavingsGoalsManagementDialog(): void {
+    // Use savings goals from enhanced dashboard if available
+    const dialogData: SavingsGoalsDialogData = {
+      savingsGoals: this.enhancedDashboard?.savingsGoals
     };
 
-    const dialogRef = this.dialog.open(SmartSavingsGoalDialogComponent, {
-      width: '800px',
+    const dialogRef = this.dialog.open(SavingsGoalsManagementModalComponent, {
+      width: '900px',
       maxWidth: '95vw',
       maxHeight: '90vh',
       data: dialogData,
-      panelClass: 'smart-savings-dialog'
+      panelClass: 'savings-goals-management-dialog'
     });
 
-    dialogRef.afterClosed().subscribe((result: SavingsGoalResult | string) => {
-      if (result === 'navigate-budget') {
-        this.navigateToBudgetCategories();
-      } else if (result && typeof result === 'object') {
-        // Handle successful goal creation
-        console.log('Savings goal created:', result);
-        this.saveSavingsGoal(result);
-        this.loadSavingsGoals();
+    dialogRef.afterClosed().subscribe(result => {
+      if (result?.type === 'save') {
+        // Refresh enhanced dashboard data after savings goals changes
+        setTimeout(() => {
+          this.loadEnhancedDashboardData();
+        }, 100);
       }
     });
+  }
+
+  // Keep the old method for backward compatibility with existing savings goal dialog
+  openSavingsGoalDialog(): void {
+    this.openSavingsGoalsManagementDialog();
   }
 
   getBudgetStatusClass(): string {
@@ -1652,5 +1796,109 @@ export class DashboardComponent implements OnInit, OnDestroy {
   getGoalProgressPercentage(goal: any): number {
     if (!goal.targetAmount) return 0;
     return Math.min((goal.currentProgress || 0) / goal.targetAmount * 100, 100);
+  }
+
+  // Monthly data helper methods
+  hasMonthlyData(): boolean {
+    return this.getMonthlyIncome() > 0;
+  }
+
+  getMonthlyIncome(): number {
+    return this.user?.monthlyIncome || 0;
+  }
+
+  // Enhanced monthly data using real-time backend data
+  hasEnhancedMonthlyData(): boolean {
+    return this.getEnhancedMonthlyIncome() > 0;
+  }
+
+  getEnhancedMonthlyIncome(): number {
+    return this.enhancedDashboard?.incomeManagement?.totalMonthlyIncome || this.getMonthlyIncome();
+  }
+
+  getMonthlyExpenses(): number {
+    return this.dashboardOverview?.budgetSummary?.reduce((sum, category) => 
+      sum + (category.monthlyLimit || 0), 0) || 0;
+  }
+
+  getMonthlySavings(): number {
+    return this.getEnhancedMonthlyIncome() - this.getMonthlyExpenses() - this.getTotalLoanPayment();
+  }
+
+  getMonthlySavingsClass(): string {
+    const savings = this.getMonthlySavings();
+    if (savings >= 1000) return 'positive';
+    if (savings >= 0) return 'neutral';
+    return 'warning';
+  }
+
+  // Recent expenses helper methods
+  hasRecentExpenses(): boolean {
+    return this.getRecentExpenses().length > 0;
+  }
+
+  getRecentExpenses(): any[] {
+    // For now, return empty array - this would come from expense tracking service
+    return [];
+  }
+
+  getCategoryClass(category: string): string {
+    const categoryLower = category?.toLowerCase() || '';
+    if (categoryLower.includes('grocery') || categoryLower.includes('food')) return 'grocery-category';
+    if (categoryLower.includes('gas') || categoryLower.includes('transport')) return 'transportation-category';
+    if (categoryLower.includes('restaurant') || categoryLower.includes('dining')) return 'dining-category';
+    return 'shopping-category';
+  }
+
+  getCategoryIcon(category: string): string {
+    const categoryLower = category?.toLowerCase() || '';
+    if (categoryLower.includes('grocery') || categoryLower.includes('food')) return 'shopping_cart';
+    if (categoryLower.includes('gas') || categoryLower.includes('transport')) return 'local_gas_station';
+    if (categoryLower.includes('restaurant') || categoryLower.includes('dining')) return 'restaurant';
+    return 'shopping_bag';
+  }
+
+  openIncomeSetupDialog(): void {
+    // Load current income management data if available from enhanced dashboard
+    const dialogData: IncomeManagementDialogData = {
+      incomeManagement: this.enhancedDashboard?.incomeManagement
+    };
+
+    const dialogRef = this.dialog.open(IncomeManagementModalComponent, {
+      width: '800px',
+      maxWidth: '95vw',
+      maxHeight: '90vh',
+      data: dialogData,
+      panelClass: 'income-management-dialog'
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      console.log('Dashboard: Income management dialog closed with result:', result);
+      if (result?.type === 'save') {
+        console.log('Dashboard: Refreshing dashboard data after income save...');
+        // Refresh all dashboard data after income management changes
+        setTimeout(() => {
+          this.loadEnhancedDashboardData();
+          this.loadDashboardData(); // Also refresh main dashboard data
+        }, 100);
+      }
+    });
+  }
+
+  deleteSavingsGoal(goalToDelete: any): void {
+    const confirmDelete = confirm(`Are you sure you want to delete the savings goal "${goalToDelete.goalName}"?\n\nThis action cannot be undone.`);
+    
+    if (confirmDelete) {
+      // Remove the goal from the array
+      this.savingsGoals = this.savingsGoals.filter(goal => goal.id !== goalToDelete.id);
+      
+      // Save updated goals to localStorage
+      localStorage.setItem('savingsGoals', JSON.stringify(this.savingsGoals));
+      
+      // Trigger change detection to update the UI
+      this.cdr.detectChanges();
+      
+      console.log(`Deleted savings goal: ${goalToDelete.goalName}`);
+    }
   }
 }

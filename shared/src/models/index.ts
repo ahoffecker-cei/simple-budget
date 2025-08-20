@@ -8,3 +8,5 @@ export * from './budget-category';
 export * from './expense';
 export * from './budget-impact';
 export * from './category-customization';
+export * from './income-management';
+export * from './savings-goals';

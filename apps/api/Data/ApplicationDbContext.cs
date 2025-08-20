@@ -14,6 +14,8 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<StudentLoan> StudentLoans { get; set; }
     public DbSet<BudgetCategory> BudgetCategories { get; set; }
     public DbSet<Expense> Expenses { get; set; }
+    public DbSet<IncomeSource> IncomeSources { get; set; }
+    public DbSet<SavingsGoal> SavingsGoals { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -89,6 +91,44 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
                 .WithMany()
                 .HasForeignKey(e => e.CategoryId)
                 .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.SavingsGoal)
+                .WithMany()
+                .HasForeignKey(e => e.SavingsGoalId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
+        
+        // Configure IncomeSource entity
+        modelBuilder.Entity<IncomeSource>(entity =>
+        {
+            entity.HasKey(e => e.IncomeSourceId);
+            entity.Property(e => e.IncomeSourceId).ValueGeneratedOnAdd();
+            entity.Property(e => e.Name).HasMaxLength(100);
+            entity.Property(e => e.Amount).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Frequency).HasMaxLength(20);
+            entity.HasOne(e => e.User)
+                .WithMany(u => u.IncomeSources)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            
+            // Add unique constraint for Name per User
+            entity.HasIndex(e => new { e.UserId, e.Name }).IsUnique();
+        });
+        
+        // Configure SavingsGoal entity
+        modelBuilder.Entity<SavingsGoal>(entity =>
+        {
+            entity.HasKey(e => e.SavingsGoalId);
+            entity.Property(e => e.SavingsGoalId).ValueGeneratedOnAdd();
+            entity.Property(e => e.Name).HasMaxLength(100);
+            entity.Property(e => e.TargetAmount).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.CurrentProgress).HasColumnType("decimal(18,2)");
+            entity.HasOne(e => e.User)
+                .WithMany(u => u.SavingsGoals)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            
+            // Add unique constraint for Name per User
+            entity.HasIndex(e => new { e.UserId, e.Name }).IsUnique();
         });
     }
 }

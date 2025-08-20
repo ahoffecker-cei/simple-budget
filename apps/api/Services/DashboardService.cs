@@ -11,13 +11,17 @@ public class DashboardService : IDashboardService
     private readonly ApplicationDbContext _context;
     private readonly IMemoryCache _cache;
     private readonly IBudgetCalculationService _budgetCalculationService;
+    private readonly IIncomeManagementService _incomeManagementService;
+    private readonly ISavingsGoalService _savingsGoalService;
     private readonly TimeSpan _cacheExpiry = TimeSpan.FromMinutes(15);
     
-    public DashboardService(ApplicationDbContext context, IMemoryCache cache, IBudgetCalculationService budgetCalculationService)
+    public DashboardService(ApplicationDbContext context, IMemoryCache cache, IBudgetCalculationService budgetCalculationService, IIncomeManagementService incomeManagementService, ISavingsGoalService savingsGoalService)
     {
         _context = context;
         _cache = cache;
         _budgetCalculationService = budgetCalculationService;
+        _incomeManagementService = incomeManagementService;
+        _savingsGoalService = savingsGoalService;
     }
 
     public async Task<DashboardOverviewResponseDto> GetCompleteOverviewAsync(string userId)
@@ -52,6 +56,44 @@ public class DashboardService : IDashboardService
 
         _cache.Set(cacheKey, overview, _cacheExpiry);
         return overview;
+    }
+
+    public async Task<EnhancedDashboardResponseDto> GetEnhancedOverviewAsync(string userId)
+    {
+        var currentMonth = DateTime.Now.ToString("yyyy-MM");
+        var cacheKey = $"enhanced_dashboard_{userId}_{currentMonth}";
+
+        if (_cache.TryGetValue(cacheKey, out EnhancedDashboardResponseDto? cachedEnhancedOverview) && cachedEnhancedOverview != null)
+        {
+            return cachedEnhancedOverview;
+        }
+
+        // Fetch all data sequentially to avoid DbContext concurrency issues
+        var accounts = await GetAccountsAsync(userId);
+        var budgetSummaries = await GetBudgetCategorySummariesAsync(userId);
+        var recentExpenses = await GetRecentExpensesAsync(userId, 10);
+        var monthlyProgress = await GetMonthlyProgressSummaryAsync(userId);
+        var incomeManagement = await _incomeManagementService.GetIncomeManagementAsync(userId);
+        var savingsGoals = await _savingsGoalService.GetSavingsGoalProgressAsync(userId);
+
+        var totalNetWorth = accounts.Sum(a => a.CurrentBalance);
+        var overallHealth = CalculateEnhancedOverallHealthStatus(totalNetWorth, monthlyProgress.PercentageUsed, savingsGoals);
+        var healthMessage = GetHealthMessage(overallHealth);
+
+        var enhancedOverview = new EnhancedDashboardResponseDto
+        {
+            Accounts = accounts.ToList(),
+            BudgetSummary = budgetSummaries.ToList(),
+            RecentExpenses = recentExpenses.ToList(),
+            MonthlyProgress = monthlyProgress,
+            IncomeManagement = incomeManagement,
+            SavingsGoals = savingsGoals,
+            OverallHealthStatus = overallHealth,
+            OverallHealthMessage = healthMessage
+        };
+
+        _cache.Set(cacheKey, enhancedOverview, _cacheExpiry);
+        return enhancedOverview;
     }
 
     public async Task<BudgetCategorySummaryDto[]> GetBudgetCategorySummariesAsync(string userId)
@@ -124,24 +166,23 @@ public class DashboardService : IDashboardService
 
         var expenses = await _context.Expenses
             .Where(e => e.UserId == userId)
-            .Join(_context.BudgetCategories,
-                expense => expense.CategoryId,
-                category => category.CategoryId,
-                (expense, category) => new ExpenseWithCategoryDto
-                {
-                    ExpenseId = expense.ExpenseId,
-                    Amount = expense.Amount,
-                    Description = expense.Description,
-                    ExpenseDate = expense.ExpenseDate,
-                    CreatedAt = expense.CreatedAt,
-                    CategoryName = category.Name,
-                    CategoryId = category.CategoryId,
-                    IsEssential = category.IsEssential,
-                    ColorId = category.ColorId,
-                    IconId = category.IconId
-                })
+            .Include(e => e.BudgetCategory)
+            .Include(e => e.SavingsGoal)
             .OrderByDescending(e => e.CreatedAt)
             .Take(count)
+            .Select(expense => new ExpenseWithCategoryDto
+            {
+                ExpenseId = expense.ExpenseId,
+                Amount = expense.Amount,
+                Description = expense.Description,
+                ExpenseDate = expense.ExpenseDate,
+                CreatedAt = expense.CreatedAt,
+                CategoryName = expense.BudgetCategory.Name,
+                CategoryId = expense.CategoryId,
+                IsEssential = expense.BudgetCategory.IsEssential,
+                ColorId = expense.BudgetCategory.ColorId,
+                IconId = expense.BudgetCategory.IconId
+            })
             .ToArrayAsync();
 
         _cache.Set(cacheKey, expenses, TimeSpan.FromMinutes(5));
@@ -249,6 +290,7 @@ public class DashboardService : IDashboardService
         var keysToRemove = new[]
         {
             $"dashboard_overview_{userId}_{currentMonth}",
+            $"enhanced_dashboard_{userId}_{currentMonth}",
             $"budget_summaries_{userId}_{currentMonth}",
             $"recent_expenses_{userId}_10",
             $"monthly_progress_{userId}_{currentMonth}"
@@ -316,6 +358,51 @@ public class DashboardService : IDashboardService
             <= 50 => "excellent",
             <= 75 => "good",
             <= 90 => "attention",
+            _ => "concern"
+        };
+    }
+
+    private static string CalculateEnhancedOverallHealthStatus(decimal totalNetWorth, decimal budgetPercentageUsed, List<SavingsGoalProgressDto> savingsGoals)
+    {
+        // Consider net worth, budget usage, and savings progress
+        var netWorthHealth = totalNetWorth switch
+        {
+            >= 50000 => 4, // excellent
+            >= 10000 => 3, // good  
+            >= 1000 => 2,  // attention
+            _ => 1         // concern
+        };
+
+        var budgetHealth = budgetPercentageUsed switch
+        {
+            <= 50 => 4,   // excellent
+            <= 75 => 3,   // good
+            <= 90 => 2,   // attention
+            _ => 1        // concern
+        };
+
+        // Calculate savings goal health
+        var savingsHealth = 4; // Default excellent if no goals
+        if (savingsGoals.Any())
+        {
+            var avgProgress = savingsGoals.Average(sg => sg.PercentageComplete);
+            savingsHealth = avgProgress switch
+            {
+                >= 75 => 4,   // excellent
+                >= 50 => 3,   // good
+                >= 25 => 2,   // attention
+                _ => 1        // concern
+            };
+        }
+
+        // Weight budget health most heavily, then savings, then net worth
+        var overallScore = (budgetHealth * 0.5) + (savingsHealth * 0.3) + (netWorthHealth * 0.2);
+
+        return overallScore switch
+        {
+            >= 3.5 => "excellent",
+            >= 2.5 => "good", 
+            >= 1.5 => "attention",
             _ => "concern"
         };
     }

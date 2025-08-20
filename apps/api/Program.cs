@@ -77,6 +77,8 @@ builder.Services.AddScoped<IBudgetValidationService, BudgetValidationService>();
 builder.Services.AddScoped<ICategoryClassificationService, CategoryClassificationService>();
 builder.Services.AddScoped<IBudgetCalculationService, BudgetCalculationService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
+builder.Services.AddScoped<IIncomeManagementService, IncomeManagementService>();
+builder.Services.AddScoped<ISavingsGoalService, SavingsGoalService>();
 
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi

@@ -30,7 +30,12 @@ public class Expense
     [Required]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     
+    // Optional foreign key for savings goal tagging
+    [ForeignKey(nameof(SavingsGoal))]
+    public Guid? SavingsGoalId { get; set; }
+    
     // Navigation properties
     public ApplicationUser User { get; set; } = null!;
     public BudgetCategory BudgetCategory { get; set; } = null!;
+    public SavingsGoal? SavingsGoal { get; set; }
 }
