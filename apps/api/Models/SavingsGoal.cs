@@ -24,6 +24,9 @@ public class SavingsGoal
     [Column(TypeName = "decimal(18,2)")]
     public decimal CurrentProgress { get; set; } = 0;
     
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal? MonthlySavingsTarget { get; set; }
+    
     [Required]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     

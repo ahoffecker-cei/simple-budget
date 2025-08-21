@@ -9,6 +9,7 @@ public class SavingsGoalDto
     public string Name { get; set; } = string.Empty;
     public decimal TargetAmount { get; set; }
     public decimal CurrentProgress { get; set; }
+    public decimal? MonthlySavingsTarget { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime LastUpdated { get; set; }
 }
@@ -22,6 +23,9 @@ public class CreateSavingsGoalRequest
     [Required]
     [Range(0.01, 9999999.99, ErrorMessage = "Target amount must be greater than 0")]
     public decimal TargetAmount { get; set; }
+    
+    [Range(0.01, 99999.99, ErrorMessage = "Monthly savings target must be greater than 0")]
+    public decimal? MonthlySavingsTarget { get; set; }
 }
 
 public class UpdateSavingsGoalRequest
@@ -33,6 +37,9 @@ public class UpdateSavingsGoalRequest
     [Required]
     [Range(0.01, 9999999.99, ErrorMessage = "Target amount must be greater than 0")]
     public decimal TargetAmount { get; set; }
+    
+    [Range(0.01, 99999.99, ErrorMessage = "Monthly savings target must be greater than 0")]
+    public decimal? MonthlySavingsTarget { get; set; }
 }
 
 public class SavingsGoalProgressDto
@@ -43,6 +50,7 @@ public class SavingsGoalProgressDto
     public decimal CurrentProgress { get; set; }
     public decimal PercentageComplete { get; set; }
     public decimal MonthlyContributions { get; set; }
+    public decimal? MonthlySavingsTarget { get; set; }
 }
 
 public class ContributeToSavingsGoalRequest

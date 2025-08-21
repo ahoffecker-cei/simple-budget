@@ -82,6 +82,7 @@ public class SavingsGoalsController : ControllerBase
             Name = request.Name,
             TargetAmount = request.TargetAmount,
             CurrentProgress = 0,
+            MonthlySavingsTarget = request.MonthlySavingsTarget,
             CreatedAt = DateTime.UtcNow,
             LastUpdated = DateTime.UtcNow
         };
@@ -99,6 +100,7 @@ public class SavingsGoalsController : ControllerBase
             Name = savingsGoal.Name,
             TargetAmount = savingsGoal.TargetAmount,
             CurrentProgress = savingsGoal.CurrentProgress,
+            MonthlySavingsTarget = savingsGoal.MonthlySavingsTarget,
             CreatedAt = savingsGoal.CreatedAt,
             LastUpdated = savingsGoal.LastUpdated
         };
@@ -124,6 +126,7 @@ public class SavingsGoalsController : ControllerBase
                 Name = sg.Name,
                 TargetAmount = sg.TargetAmount,
                 CurrentProgress = sg.CurrentProgress,
+                MonthlySavingsTarget = sg.MonthlySavingsTarget,
                 CreatedAt = sg.CreatedAt,
                 LastUpdated = sg.LastUpdated
             })
@@ -172,6 +175,7 @@ public class SavingsGoalsController : ControllerBase
 
         savingsGoal.Name = request.Name;
         savingsGoal.TargetAmount = request.TargetAmount;
+        savingsGoal.MonthlySavingsTarget = request.MonthlySavingsTarget;
         savingsGoal.LastUpdated = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
@@ -186,6 +190,7 @@ public class SavingsGoalsController : ControllerBase
             Name = savingsGoal.Name,
             TargetAmount = savingsGoal.TargetAmount,
             CurrentProgress = savingsGoal.CurrentProgress,
+            MonthlySavingsTarget = savingsGoal.MonthlySavingsTarget,
             CreatedAt = savingsGoal.CreatedAt,
             LastUpdated = savingsGoal.LastUpdated
         };

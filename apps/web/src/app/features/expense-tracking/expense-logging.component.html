@@ -1,239 +1,282 @@
-<div class="expense-logging-container">
+<div class="expense-viewing-container">
   <!-- Header -->
   <div class="header-section">
     <button mat-icon-button (click)="navigateToDashboard()" class="back-button">
       <mat-icon>arrow_back</mat-icon>
     </button>
     <div class="header-content">
-      <h1 class="page-title">Log Expense</h1>
-      <p class="page-subtitle">Quick expense logging with budget impact</p>
+      <h1 class="page-title">
+        <mat-icon>receipt_long</mat-icon>
+        Expense History
+      </h1>
+      <p class="page-subtitle">Track your spending journey and stay on budget! 💰</p>
+    </div>
+    <div class="header-actions">
+      <button mat-raised-button color="primary" (click)="toggleExpenseForm()" class="add-expense-btn">
+        <mat-icon>{{showExpenseForm ? 'close' : 'add'}}</mat-icon>
+        {{showExpenseForm ? 'Cancel' : 'Log New Expense'}}
+      </button>
     </div>
   </div>
 
   <div class="content-layout">
-    <!-- Main expense entry form -->
-    <mat-card class="expense-form-card">
+    <!-- Expense Entry Form (Collapsible) -->
+    <mat-card *ngIf="showExpenseForm" class="expense-form-card">
       <mat-card-header>
-        <mat-card-title>Add New Expense</mat-card-title>
-        <mat-card-subtitle>Track your spending and see budget impact</mat-card-subtitle>
+        <mat-card-title>Log New Expense</mat-card-title>
+        <mat-card-subtitle>Add a new expense to your records</mat-card-subtitle>
       </mat-card-header>
 
       <mat-card-content>
         <form [formGroup]="expenseForm" (ngSubmit)="onSubmit()" class="expense-form">
-          <!-- Amount Field -->
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Amount</mat-label>
-            <input
-              matInput
-              type="number"
-              id="amount-input"
-              formControlName="amount"
-              placeholder="0.00"
-              step="0.01"
-              min="0.01"
-              max="999999.99">
-            <span matTextPrefix>$&nbsp;</span>
-            <mat-error *ngIf="expenseForm.get('amount')?.hasError('required')">
-              Amount is required
-            </mat-error>
-            <mat-error *ngIf="expenseForm.get('amount')?.hasError('min')">
-              Amount must be greater than $0.00
-            </mat-error>
-            <mat-error *ngIf="expenseForm.get('amount')?.hasError('max')">
-              Amount cannot exceed $999,999.99
-            </mat-error>
-          </mat-form-field>
+          <div class="form-row">
+            <!-- Amount Field -->
+            <mat-form-field appearance="outline" class="form-field">
+              <mat-label>Amount</mat-label>
+              <input
+                matInput
+                type="number"
+                id="amount-input"
+                formControlName="amount"
+                placeholder="0.00"
+                step="0.01"
+                min="0.01"
+                max="999999.99">
+              <span matTextPrefix>$&nbsp;</span>
+              <mat-error *ngIf="expenseForm.get('amount')?.hasError('required')">
+                Amount is required
+              </mat-error>
+            </mat-form-field>
 
-          <!-- Category Selection with Autocomplete -->
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Category</mat-label>
-            <input
-              type="text"
-              matInput
-              formControlName="categoryId"
-              [matAutocomplete]="categoryAuto">
-            <mat-autocomplete 
-              #categoryAuto="matAutocomplete" 
-              [displayWith]="getCategoryDisplayFn">
-              <mat-option 
-                *ngFor="let category of filteredCategories" 
-                [value]="category.categoryId"
-                class="category-option">
-                <div class="category-option-content">
-                  <span class="category-name">{{category.name}}</span>
-                  <mat-chip 
-                    [class]="category.isEssential ? 'essential-chip' : 'non-essential-chip'"
-                    class="category-chip">
-                    {{category.isEssential ? 'Essential' : 'Non-Essential'}}
-                  </mat-chip>
-                </div>
-                <div class="category-limit">
-                  Monthly Limit: {{formatCurrency(category.monthlyLimit)}}
-                </div>
-              </mat-option>
-            </mat-autocomplete>
-            <mat-error *ngIf="expenseForm.get('categoryId')?.hasError('required')">
-              Category is required
-            </mat-error>
-          </mat-form-field>
+            <!-- Category Selection -->
+            <mat-form-field appearance="outline" class="form-field">
+              <mat-label>Category</mat-label>
+              <input
+                type="text"
+                matInput
+                formControlName="categoryId"
+                [matAutocomplete]="categoryAuto">
+              <mat-autocomplete #categoryAuto="matAutocomplete" [displayWith]="getCategoryDisplayFn">
+                <mat-option *ngFor="let category of filteredCategories" [value]="category.categoryId">
+                  {{category.name}}
+                </mat-option>
+              </mat-autocomplete>
+            </mat-form-field>
 
-          <!-- Date Picker -->
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Date</mat-label>
-            <input
-              matInput
-              [matDatepicker]="datePicker"
-              formControlName="expenseDate"
-              [max]="maxDate"
-              readonly>
-            <mat-datepicker-toggle matIconSuffix [for]="datePicker"></mat-datepicker-toggle>
-            <mat-datepicker #datePicker></mat-datepicker>
-            <mat-error *ngIf="expenseForm.get('expenseDate')?.hasError('required')">
-              Date is required
-            </mat-error>
-          </mat-form-field>
+            <!-- Date Picker -->
+            <mat-form-field appearance="outline" class="form-field">
+              <mat-label>Date</mat-label>
+              <input matInput [matDatepicker]="datePicker" formControlName="expenseDate" [max]="maxDate" readonly>
+              <mat-datepicker-toggle matIconSuffix [for]="datePicker"></mat-datepicker-toggle>
+              <mat-datepicker #datePicker></mat-datepicker>
+            </mat-form-field>
+          </div>
 
-          <!-- Optional Description -->
+          <!-- Description -->
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Description (Optional)</mat-label>
-            <textarea
-              matInput
-              formControlName="description"
-              placeholder="Add details about this expense..."
-              rows="2"
-              maxlength="500">
-            </textarea>
-            <mat-hint align="end">
-              {{expenseForm.get('description')?.value?.length || 0}}/500
-            </mat-hint>
+            <input matInput formControlName="description" placeholder="Add details..." maxlength="500">
           </mat-form-field>
-
-          <!-- Budget Impact Preview -->
-          <app-budget-impact-preview
-            [categoryId]="expenseForm.get('categoryId')?.value"
-            [amount]="expenseForm.get('amount')?.value || 0"
-            [expenseDate]="expenseForm.get('expenseDate')?.value?.toISOString()">
-          </app-budget-impact-preview>
-
-          <!-- Duplicate Warning -->
-          <div *ngIf="showDuplicateWarning" class="duplicate-warning">
-            <mat-icon class="warning-icon">warning</mat-icon>
-            <div class="warning-content">
-              <strong>Potential duplicate detected!</strong>
-              <p>Similar expenses were found recently:</p>
-              <div *ngFor="let duplicate of potentialDuplicates" class="duplicate-item">
-                {{formatCurrency(duplicate.amount)}} - {{duplicate.categoryName}} on {{formatDate(duplicate.expenseDate)}}
-              </div>
-            </div>
-          </div>
 
           <!-- Submit Button -->
           <div class="form-actions">
-            <button
-              mat-raised-button
-              color="primary"
-              type="submit"
-              [disabled]="!expenseForm.valid || isSubmitting"
-              class="submit-button">
-              <mat-icon *ngIf="!isSubmitting">add</mat-icon>
+            <button mat-raised-button color="primary" type="submit" [disabled]="!expenseForm.valid || isSubmitting">
+              <mat-icon *ngIf="!isSubmitting">save</mat-icon>
               <mat-spinner *ngIf="isSubmitting" diameter="20"></mat-spinner>
-              {{isSubmitting ? 'Logging...' : 'Log Expense'}}
+              {{isSubmitting ? 'Saving...' : 'Save Expense'}}
             </button>
           </div>
         </form>
       </mat-card-content>
     </mat-card>
 
-    <!-- Success Feedback Card -->
-    <mat-card *ngIf="lastCreatedExpense" class="success-feedback-card">
-      <mat-card-header>
-        <mat-icon mat-card-avatar class="success-icon">check_circle</mat-icon>
-        <mat-card-title>Expense Logged Successfully!</mat-card-title>
-        <mat-card-subtitle>Budget impact calculated</mat-card-subtitle>
-      </mat-card-header>
-
+    <!-- Filters and Summary -->
+    <mat-card class="filters-card">
       <mat-card-content>
-        <div class="expense-details">
-          <div class="expense-amount">
-            {{formatCurrency(lastCreatedExpense.expense.amount)}}
-          </div>
-          <div class="expense-category">
-            {{lastCreatedExpense.expense.categoryName}}
-            <mat-chip 
-              [class]="lastCreatedExpense.expense.isEssential ? 'essential-chip' : 'non-essential-chip'"
-              class="category-chip">
-              {{lastCreatedExpense.expense.isEssential ? 'Essential' : 'Non-Essential'}}
-            </mat-chip>
-          </div>
-          <div class="expense-date">
-            {{formatDate(lastCreatedExpense.expense.expenseDate)}}
-          </div>
-        </div>
-
-        <mat-divider></mat-divider>
-
-        <div class="budget-impact">
-          <h4>Budget Impact</h4>
-          <div class="impact-details">
-            <div class="impact-item">
-              <span class="label">Remaining Budget:</span>
-              <span class="value" [class]="getBudgetHealthColor(lastCreatedExpense.budgetHealthStatus)">
-                {{formatCurrency(lastCreatedExpense.categoryRemainingBudget)}}
-              </span>
+        <form [formGroup]="filterForm" class="filters-form">
+          <div class="filter-row">
+            <!-- Month Navigation -->
+            <div class="month-navigation">
+              <button mat-icon-button (click)="previousMonth()" type="button">
+                <mat-icon>chevron_left</mat-icon>
+              </button>
+              <span class="current-month">{{currentMonthName()}}</span>
+              <button mat-icon-button (click)="nextMonth()" type="button">
+                <mat-icon>chevron_right</mat-icon>
+              </button>
             </div>
-            <div class="impact-item">
-              <span class="label">Health Status:</span>
-              <span class="value" [class]="getBudgetHealthColor(lastCreatedExpense.budgetHealthStatus)">
-                <mat-icon class="health-icon">{{getBudgetHealthIcon(lastCreatedExpense.budgetHealthStatus)}}</mat-icon>
-                {{lastCreatedExpense.budgetHealthStatus | titlecase}}
-              </span>
+
+            <!-- Category Filter -->
+            <mat-form-field appearance="outline" class="filter-field">
+              <mat-label>Filter by Category</mat-label>
+              <mat-select formControlName="categoryId">
+                <mat-option value="">All Categories</mat-option>
+                <mat-option *ngFor="let category of budgetCategories" [value]="category.categoryId">
+                  {{category.name}}
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <!-- Search -->
+            <mat-form-field appearance="outline" class="filter-field">
+              <mat-label>Search</mat-label>
+              <input matInput formControlName="searchText" placeholder="Search description or category...">
+              <mat-icon matSuffix>search</mat-icon>
+            </mat-form-field>
+
+            <!-- Reset Filters -->
+            <button mat-button (click)="resetFilters()" type="button">
+              <mat-icon>clear</mat-icon>
+              Reset
+            </button>
+          </div>
+        </form>
+
+        <!-- Summary Stats -->
+        <div class="summary-stats">
+          <div class="stat-item">
+            <mat-icon class="stat-icon">receipt</mat-icon>
+            <div class="stat-content">
+              <div class="stat-label">Total Expenses</div>
+              <div class="stat-value">{{filteredExpenses.length}}</div>
             </div>
-            <div class="impact-item">
-              <span class="label">Monthly Spending:</span>
-              <span class="value">
-                {{formatCurrency(lastCreatedExpense.categoryCurrentSpending)}} / {{formatCurrency(lastCreatedExpense.categoryMonthlyLimit)}}
-              </span>
+          </div>
+          <div class="stat-item">
+            <mat-icon class="stat-icon">payments</mat-icon>
+            <div class="stat-content">
+              <div class="stat-label">Total Spent</div>
+              <div class="stat-value">{{formatCurrency(getTotalSpent())}}</div>
             </div>
           </div>
         </div>
       </mat-card-content>
     </mat-card>
 
-    <!-- Recent Expenses -->
-    <mat-card *ngIf="recentExpenses.length > 0" class="recent-expenses-card">
+    <!-- Expenses Table -->
+    <mat-card class="expenses-table-card">
       <mat-card-header>
-        <mat-card-title>Recent Expenses</mat-card-title>
-        <mat-card-subtitle>Quick fill from recent entries</mat-card-subtitle>
+        <div class="table-header-content">
+          <div class="table-title-section">
+            <mat-card-title>Expense Records</mat-card-title>
+            <mat-card-subtitle>{{filteredExpenses.length}} expenses found</mat-card-subtitle>
+          </div>
+          <div class="table-controls">
+            <mat-form-field appearance="outline" class="sort-field">
+              <mat-label>Sort by</mat-label>
+              <mat-select [(value)]="sortColumn" (selectionChange)="onSortChange($event.value)">
+                <mat-option value="expenseDate">Date</mat-option>
+                <mat-option value="amount">Amount</mat-option>
+                <mat-option value="categoryName">Category</mat-option>
+                <mat-option value="description">Description</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <button mat-icon-button (click)="toggleSortDirection()" class="sort-direction-btn" [matTooltip]="sortDirection === 'asc' ? 'Ascending' : 'Descending'">
+              <mat-icon>{{sortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}}</mat-icon>
+            </button>
+          </div>
+        </div>
       </mat-card-header>
 
       <mat-card-content>
-        <div class="recent-expenses-list">
-          <div 
-            *ngFor="let expense of recentExpenses" 
-            class="recent-expense-item"
-            (click)="quickFillFromRecent(expense)"
-            matTooltip="Click to use as template">
-            <div class="expense-info">
-              <div class="amount">{{formatCurrency(expense.amount)}}</div>
-              <div class="category">{{expense.categoryName}}</div>
-              <div class="date">{{formatDate(expense.expenseDate)}}</div>
-            </div>
-            <mat-icon class="quick-fill-icon">content_copy</mat-icon>
-          </div>
+        <div *ngIf="isLoading" class="loading-container">
+          <mat-spinner diameter="40"></mat-spinner>
+          <p>Loading expenses...</p>
         </div>
 
-        <div class="recent-expenses-actions">
-          <button mat-button color="primary" (click)="viewAllExpenses()">
-            View All Expenses
-            <mat-icon>arrow_forward</mat-icon>
+        <div *ngIf="!isLoading && filteredExpenses.length === 0" class="no-expenses">
+          <mat-icon class="empty-state-icon">shopping_bag</mat-icon>
+          <h3>No Expenses Found</h3>
+          <p>Ready to start tracking your spending? Every financial journey begins with a single step!</p>
+          <button mat-raised-button color="primary" (click)="toggleExpenseForm()">
+            <mat-icon>add_circle</mat-icon>
+            Log Your First Expense
           </button>
         </div>
+
+        <div *ngIf="!isLoading && filteredExpenses.length > 0" class="expenses-table-container">
+          <table mat-table [dataSource]="filteredExpenses" class="expenses-table">
+            <!-- Date Column -->
+            <ng-container matColumnDef="expenseDate">
+              <th mat-header-cell *matHeaderCellDef class="table-header">
+                Date
+              </th>
+              <td mat-cell *matCellDef="let expense" class="date-cell">
+                {{formatDate(expense.expenseDate)}}
+              </td>
+            </ng-container>
+
+            <!-- Amount Column -->
+            <ng-container matColumnDef="amount">
+              <th mat-header-cell *matHeaderCellDef class="table-header">
+                Amount
+              </th>
+              <td mat-cell *matCellDef="let expense" class="amount-cell">
+                <span class="amount-value" [ngStyle]="{'color': getAmountColor(expense.amount)}">
+                  {{formatCurrency(expense.amount)}}
+                </span>
+              </td>
+            </ng-container>
+
+            <!-- Category Column -->
+            <ng-container matColumnDef="categoryName">
+              <th mat-header-cell *matHeaderCellDef class="table-header">
+                Category
+              </th>
+              <td mat-cell *matCellDef="let expense" class="category-cell">
+                <div class="category-wrapper">
+                  <mat-icon class="category-icon">{{getCategoryIcon(expense.categoryName)}}</mat-icon>
+                  <div class="category-details">
+                    <span class="category-name">{{expense.categoryName}}</span>
+                    <span class="category-type" [class]="expense.isEssential ? 'essential-type' : 'fun-type'">
+                      {{expense.isEssential ? 'Essential' : 'Fun'}}
+                    </span>
+                  </div>
+                </div>
+              </td>
+            </ng-container>
+
+            <!-- Description Column -->
+            <ng-container matColumnDef="description">
+              <th mat-header-cell *matHeaderCellDef class="table-header">
+                Description
+              </th>
+              <td mat-cell *matCellDef="let expense" class="description-cell">
+                <span *ngIf="expense.description" class="description-text" [matTooltip]="expense.description">
+                  {{expense.description}}
+                </span>
+                <span *ngIf="!expense.description" class="no-description">—</span>
+              </td>
+            </ng-container>
+
+            <!-- Actions Column -->
+            <ng-container matColumnDef="actions">
+              <th mat-header-cell *matHeaderCellDef class="table-header">Actions</th>
+              <td mat-cell *matCellDef="let expense">
+                <button mat-icon-button [matMenuTriggerFor]="actionMenu" [matMenuTriggerData]="{expense: expense}">
+                  <mat-icon>more_vert</mat-icon>
+                </button>
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="expense-row"></tr>
+          </table>
+        </div>
       </mat-card-content>
     </mat-card>
   </div>
 
-  <!-- Loading Overlay -->
-  <div *ngIf="isLoading" class="loading-overlay">
-    <mat-spinner diameter="50"></mat-spinner>
-  </div>
+  <!-- Action Menu for Expense Rows -->
+  <mat-menu #actionMenu="matMenu">
+    <ng-template matMenuContent let-expense="expense">
+      <button mat-menu-item (click)="editExpense(expense)">
+        <mat-icon>edit</mat-icon>
+        <span>Edit</span>
+      </button>
+      <button mat-menu-item (click)="deleteExpense(expense)" class="delete-action">
+        <mat-icon>delete</mat-icon>
+        <span>Delete</span>
+      </button>
+    </ng-template>
+  </mat-menu>
 </div>

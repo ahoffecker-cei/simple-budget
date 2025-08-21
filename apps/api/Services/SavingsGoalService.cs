@@ -49,7 +49,8 @@ public class SavingsGoalService : ISavingsGoalService
                 TargetAmount = goal.TargetAmount,
                 CurrentProgress = goal.CurrentProgress,
                 PercentageComplete = Math.Min(percentageComplete, 100),
-                MonthlyContributions = monthlyContributions
+                MonthlyContributions = monthlyContributions,
+                MonthlySavingsTarget = goal.MonthlySavingsTarget
             });
         }
 

@@ -9,6 +9,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatSliderModule } from '@angular/material/slider';
 import { Subject, takeUntil, forkJoin } from 'rxjs';
 import { SavingsGoalsService } from '../../../services/savings-goals.service';
 import { SavingsGoalProgress } from '@simple-budget/shared';
@@ -28,6 +29,7 @@ interface SavingsGoalFormData {
   currentProgress: number;
   percentageComplete: number;
   monthlyContributions: number;
+  monthlySavingsTarget: number;
 }
 
 @Component({
@@ -43,7 +45,8 @@ interface SavingsGoalFormData {
     MatIconModule,
     MatCardModule,
     MatProgressSpinnerModule,
-    MatProgressBarModule
+    MatProgressBarModule,
+    MatSliderModule
   ],
   template: `
     <div class="savings-goals-dialog">
@@ -152,6 +155,43 @@ interface SavingsGoalFormData {
                         [color]="getProgressColor(goal.value)"
                         class="progress-bar">
                       </mat-progress-bar>
+                    </div>
+
+                    <!-- Monthly Savings Target Slider -->
+                    <div class="monthly-target-section" *ngIf="goal.get('targetAmount')?.value > 0">
+                      <h4>Monthly Savings Target</h4>
+                      <div class="slider-container">
+                        <div class="slider-header">
+                          <span class="slider-label">$0</span>
+                          <span class="slider-value">{{ goal.get('monthlySavingsTarget')?.value || 0 | currency }}</span>
+                          <span class="slider-label">$2,000</span>
+                        </div>
+                        <mat-slider 
+                          class="savings-target-slider"
+                          [min]="0" 
+                          [max]="2000" 
+                          [step]="25"
+                          discrete
+                          showTickMarks>
+                          <input matSliderThumb 
+                                 [formControlName]="'monthlySavingsTarget'"
+                                 (input)="onMonthlySavingsTargetChange(i)">
+                        </mat-slider>
+                      </div>
+
+                      <!-- Time to Goal Calculation -->
+                      <div class="time-to-goal" *ngIf="getTimeToGoalMonths(goal.value) > 0">
+                        <div class="time-info">
+                          <div class="time-label">Time to Goal</div>
+                          <div class="time-value" [class]="getTimeToGoalClass(goal.value)">
+                            {{ getTimeToGoalMonths(goal.value) }} months
+                            <span class="years-helper" *ngIf="getTimeToGoalMonths(goal.value) > 12">
+                              ({{ (getTimeToGoalMonths(goal.value) / 12) | number:'1.1-1' }} years)
+                            </span>
+                          </div>
+                        </div>
+                        <mat-icon [class]="getTimeToGoalClass(goal.value)">{{ getTimeToGoalIcon(goal.value) }}</mat-icon>
+                      </div>
                     </div>
 
                     <!-- Monthly Contributions Info -->
@@ -383,6 +423,117 @@ interface SavingsGoalFormData {
       height: 16px;
     }
 
+    // Monthly Savings Target Section
+    .monthly-target-section {
+      background: white;
+      padding: 16px;
+      border-radius: 8px;
+      border: 1px solid var(--color-neutral-200);
+      margin-bottom: 12px;
+    }
+
+    .monthly-target-section h4 {
+      margin: 0 0 12px 0;
+      color: var(--color-neutral-700);
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    .slider-container {
+      margin-bottom: 16px;
+    }
+
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .slider-label {
+      font-size: 0.8rem;
+      color: var(--color-neutral-600);
+    }
+
+    .slider-value {
+      font-family: var(--font-mono, monospace);
+      font-weight: 600;
+      font-size: 1.1rem;
+      color: var(--color-primary);
+    }
+
+    .savings-target-slider {
+      width: 100%;
+    }
+
+    .time-to-goal {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px;
+      background: rgba(90, 155, 212, 0.08);
+      border-radius: 6px;
+      border-left: 3px solid var(--color-secondary);
+    }
+
+    .time-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .time-label {
+      font-size: 0.8rem;
+      color: var(--color-neutral-600);
+      font-weight: 500;
+    }
+
+    .time-value {
+      font-family: var(--font-mono, monospace);
+      font-weight: 700;
+      font-size: 1.2rem;
+    }
+
+    .time-value.excellent {
+      color: var(--color-success);
+    }
+
+    .time-value.good {
+      color: var(--color-secondary);
+    }
+
+    .time-value.moderate {
+      color: var(--color-warning);
+    }
+
+    .time-value.slow {
+      color: #f44336;
+    }
+
+    .years-helper {
+      font-size: 0.8rem;
+      font-weight: 400;
+      opacity: 0.7;
+      display: block;
+      margin-top: 2px;
+    }
+
+    .time-to-goal mat-icon.excellent {
+      color: var(--color-success);
+    }
+
+    .time-to-goal mat-icon.good {
+      color: var(--color-secondary);
+    }
+
+    .time-to-goal mat-icon.moderate {
+      color: var(--color-warning);
+    }
+
+    .time-to-goal mat-icon.slow {
+      color: #f44336;
+    }
+
     .empty-state {
       text-align: center;
       padding: 40px 20px;
@@ -513,7 +664,8 @@ export class SavingsGoalsManagementModalComponent implements OnInit, OnDestroy {
       targetAmount: [existingGoal?.targetAmount || '', [Validators.required, Validators.min(0.01)]],
       currentProgress: [existingGoal?.currentProgress || 0],
       percentageComplete: [existingGoal?.percentageComplete || 0],
-      monthlyContributions: [existingGoal?.monthlyContributions || 0]
+      monthlyContributions: [existingGoal?.monthlyContributions || 0],
+      monthlySavingsTarget: [existingGoal?.monthlySavingsTarget || 0]
     });
 
     this.savingsGoalsArray.push(goalGroup);
@@ -574,7 +726,8 @@ export class SavingsGoalsManagementModalComponent implements OnInit, OnDestroy {
       goals.forEach((goal: SavingsGoalFormData) => {
         const request = {
           name: goal.name,
-          targetAmount: parseFloat(goal.targetAmount.toString())
+          targetAmount: parseFloat(goal.targetAmount.toString()),
+          monthlySavingsTarget: goal.monthlySavingsTarget > 0 ? parseFloat(goal.monthlySavingsTarget.toString()) : undefined
         };
 
         if (goal.savingsGoalId) {
@@ -606,5 +759,36 @@ export class SavingsGoalsManagementModalComponent implements OnInit, OnDestroy {
         this.dialogRef.close({ type: 'save' } as SavingsGoalsDialogResult);
       }
     }
+  }
+
+  onMonthlySavingsTargetChange(index: number): void {
+    // Method called when slider value changes - calculations are automatic via getTimeToGoalMonths
+  }
+
+  getTimeToGoalMonths(goalValue: SavingsGoalFormData): number {
+    const remaining = this.getRemainingAmount(goalValue);
+    const monthlyTarget = goalValue.monthlySavingsTarget || 0;
+    
+    if (remaining <= 0 || monthlyTarget <= 0) {
+      return 0;
+    }
+    
+    return Math.ceil(remaining / monthlyTarget);
+  }
+
+  getTimeToGoalClass(goalValue: SavingsGoalFormData): string {
+    const months = this.getTimeToGoalMonths(goalValue);
+    if (months <= 12) return 'excellent';
+    if (months <= 24) return 'good';
+    if (months <= 36) return 'moderate';
+    return 'slow';
+  }
+
+  getTimeToGoalIcon(goalValue: SavingsGoalFormData): string {
+    const months = this.getTimeToGoalMonths(goalValue);
+    if (months <= 12) return 'flash_on';
+    if (months <= 24) return 'schedule';
+    if (months <= 36) return 'access_time';
+    return 'hourglass_empty';
   }
 }

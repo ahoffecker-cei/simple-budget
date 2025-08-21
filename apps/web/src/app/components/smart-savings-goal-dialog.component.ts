@@ -23,6 +23,7 @@ export interface SavingsGoalResult {
   targetAmount: number;
   monthlyContribution: number;
   monthsToGoal: number;
+  monthlySavingsTarget?: number;
 }
 
 @Component({
@@ -734,7 +735,8 @@ export class SmartSavingsGoalDialogComponent implements OnInit {
         goalName: this.goalForm.get('goalName')?.value,
         targetAmount: this.goalForm.get('targetAmount')?.value,
         monthlyContribution: this.monthlyContribution,
-        monthsToGoal: this.getMonthsToGoal()
+        monthsToGoal: this.getMonthsToGoal(),
+        monthlySavingsTarget: this.monthlyContribution
       };
       
       this.dialogRef.close(result);

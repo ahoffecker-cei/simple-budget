@@ -96,6 +96,11 @@ import { SavingsGoalProgress } from '@simple-budget/shared';
                 <span>{{ getRemainingAmount(goal) | currency }} remaining</span>
               </div>
 
+              <div class="detail-item" *ngIf="!isGoalCompleted(goal) && goal.monthlySavingsTarget && goal.monthlySavingsTarget > 0">
+                <mat-icon>event</mat-icon>
+                <span>{{ getTimeToGoal(goal) }} months to goal</span>
+              </div>
+
               <div class="detail-item" *ngIf="isGoalCompleted(goal)">
                 <mat-icon>celebration</mat-icon>
                 <span>Goal achieved!</span>
@@ -517,5 +522,16 @@ export class EnhancedSavingsGoalsComponent implements OnInit, OnChanges {
     if (percentage >= 75) return 'primary';
     if (percentage >= 50) return 'accent';
     return 'warn';
+  }
+
+  getTimeToGoal(goal: SavingsGoalProgress): number {
+    const remaining = this.getRemainingAmount(goal);
+    const monthlyTarget = goal.monthlySavingsTarget || 0;
+    
+    if (remaining <= 0 || monthlyTarget <= 0) {
+      return 0;
+    }
+    
+    return Math.ceil(remaining / monthlyTarget);
   }
 }

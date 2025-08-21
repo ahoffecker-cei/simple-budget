@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
-import { Subject, takeUntil, startWith, map } from 'rxjs';
+import { Subject, takeUntil, startWith, debounceTime } from 'rxjs';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -17,15 +17,21 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatTableModule } from '@angular/material/table';
+import { MatSortModule } from '@angular/material/sort';
+import { MatPaginatorModule } from '@angular/material/paginator';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 
 import { ExpenseTrackingService } from './services/expense-tracking.service';
 import { BudgetCategoriesService } from '../budget-setup/services/budget-categories.service';
-import { BudgetImpactPreviewComponent } from './budget-impact-preview.component';
 import { 
   BudgetCategory, 
   CreateExpenseRequest, 
   ExpenseWithBudgetImpact,
-  Expense
+  Expense,
+  ExpenseListQueryParameters,
+  RecentExpensesResponse
 } from '../../../../../../shared/src/models';
 
 @Component({
@@ -49,12 +55,17 @@ import {
     MatChipsModule,
     MatDividerModule,
     MatTooltipModule,
-    BudgetImpactPreviewComponent
+    MatTableModule,
+    MatSortModule,
+    MatPaginatorModule,
+    MatMenuModule,
+    MatDialogModule
   ],
   templateUrl: './expense-logging.component.html',
   styleUrls: ['./expense-logging.component.scss']
 })
 export class ExpenseLoggingComponent implements OnInit, OnDestroy {
+  // Existing expense form properties
   expenseForm: FormGroup;
   budgetCategories: BudgetCategory[] = [];
   filteredCategories: BudgetCategory[] = [];
@@ -67,8 +78,24 @@ export class ExpenseLoggingComponent implements OnInit, OnDestroy {
   isOnline = true;
   offlineExpensesCount = 0;
   showSuccessFeedback = false;
-  
   maxDate = new Date(); // Prevent future dates
+  
+  // New expense viewing properties
+  showExpenseForm = false;
+  allExpenses: Expense[] = [];
+  filteredExpenses: Expense[] = [];
+  totalExpenses = 0;
+  currentPage = 1;
+  pageSize = 20;
+  filterForm: FormGroup;
+  sortColumn = 'expenseDate';
+  sortDirection: 'asc' | 'desc' = 'desc';
+  
+  // Date range for filtering
+  currentMonth = new Date();
+  
+  // Table columns
+  displayedColumns: string[] = ['expenseDate', 'amount', 'categoryName', 'description', 'actions'];
   
   private destroy$ = new Subject<void>();
 
@@ -77,15 +104,18 @@ export class ExpenseLoggingComponent implements OnInit, OnDestroy {
     private expenseService: ExpenseTrackingService,
     private categoriesService: BudgetCategoriesService,
     private snackBar: MatSnackBar,
-    private router: Router
+    private router: Router,
+    private dialog: MatDialog
   ) {
     this.expenseForm = this.createForm();
+    this.filterForm = this.createFilterForm();
   }
 
   ngOnInit(): void {
     this.loadBudgetCategories();
-    this.loadRecentExpenses();
+    this.loadAllExpenses();
     this.setupFormSubscriptions();
+    this.setupFilterFormSubscriptions();
     this.setupOnlineStatusSubscription();
     this.setupOfflineExpensesSubscription();
   }
@@ -162,6 +192,19 @@ export class ExpenseLoggingComponent implements OnInit, OnDestroy {
       categoryId: ['', Validators.required],
       description: ['', [Validators.maxLength(500)]],
       expenseDate: [new Date(), [Validators.required, this.futureDateValidator, this.tooOldValidator]]
+    });
+  }
+
+  private createFilterForm(): FormGroup {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    
+    return this.fb.group({
+      categoryId: [''],
+      startDate: [startOfMonth],
+      endDate: [endOfMonth],
+      searchText: ['']
     });
   }
 
@@ -280,6 +323,83 @@ export class ExpenseLoggingComponent implements OnInit, OnDestroy {
           console.error('Error loading recent expenses:', error);
         }
       });
+  }
+
+  private loadAllExpenses(): void {
+    this.isLoading = true;
+    const filterValues = this.filterForm.value;
+    
+    const queryParams: ExpenseListQueryParameters = {
+      page: this.currentPage,
+      pageSize: this.pageSize,
+      startDate: filterValues.startDate?.toISOString().split('T')[0],
+      endDate: filterValues.endDate?.toISOString().split('T')[0],
+      categoryId: filterValues.categoryId || undefined
+    };
+
+    this.expenseService.getExpenses(queryParams)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response: RecentExpensesResponse) => {
+          this.allExpenses = response.expenses;
+          this.totalExpenses = response.totalCount || response.expenses.length;
+          this.applyLocalFilters();
+          this.isLoading = false;
+        },
+        error: (error) => {
+          console.error('Error loading expenses:', error);
+          this.snackBar.open('Failed to load expenses', 'Close', { 
+            duration: 3000,
+            panelClass: 'error-snackbar'
+          });
+          this.isLoading = false;
+        }
+      });
+  }
+
+  private setupFilterFormSubscriptions(): void {
+    this.filterForm.valueChanges
+      .pipe(
+        takeUntil(this.destroy$),
+        debounceTime(300)
+      )
+      .subscribe(() => {
+        this.currentPage = 1;
+        this.loadAllExpenses();
+      });
+  }
+
+  private applyLocalFilters(): void {
+    let filtered = [...this.allExpenses];
+    const searchText = this.filterForm.get('searchText')?.value?.toLowerCase();
+    
+    if (searchText) {
+      filtered = filtered.filter(expense => 
+        expense.description?.toLowerCase().includes(searchText) ||
+        expense.categoryName.toLowerCase().includes(searchText)
+      );
+    }
+
+    // Apply sorting
+    filtered = this.sortExpenses(filtered);
+    
+    this.filteredExpenses = filtered;
+  }
+
+  private sortExpenses(expenses: Expense[]): Expense[] {
+    return expenses.sort((a: any, b: any) => {
+      const aValue = a[this.sortColumn];
+      const bValue = b[this.sortColumn];
+      
+      let comparison = 0;
+      if (aValue < bValue) {
+        comparison = -1;
+      } else if (aValue > bValue) {
+        comparison = 1;
+      }
+      
+      return this.sortDirection === 'desc' ? comparison * -1 : comparison;
+    });
   }
 
   checkForDuplicates(): void {
@@ -432,5 +552,194 @@ export class ExpenseLoggingComponent implements OnInit, OnDestroy {
 
   viewAllExpenses(): void {
     this.router.navigate(['/expenses']);
+  }
+
+  // New methods for expense viewing functionality
+  toggleExpenseForm(): void {
+    this.showExpenseForm = !this.showExpenseForm;
+    if (this.showExpenseForm) {
+      // Focus on amount field when showing form
+      setTimeout(() => this.focusAmountField(), 100);
+    }
+  }
+
+  // New sorting methods for dropdown interface
+  onSortChange(column: string): void {
+    this.sortColumn = column;
+    this.applyLocalFilters();
+  }
+
+  toggleSortDirection(): void {
+    this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+    this.applyLocalFilters();
+  }
+
+  // Legacy sorting method (kept for compatibility)
+  sortBy(column: string): void {
+    if (this.sortColumn === column) {
+      this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      this.sortColumn = column;
+      this.sortDirection = 'desc';
+    }
+    this.applyLocalFilters();
+  }
+
+  getSortIcon(column: string): string {
+    if (this.sortColumn !== column) return 'import_export';
+    return this.sortDirection === 'asc' ? 'keyboard_arrow_up' : 'keyboard_arrow_down';
+  }
+
+  previousMonth(): void {
+    this.currentMonth.setMonth(this.currentMonth.getMonth() - 1);
+    this.updateDateRangeFilter();
+  }
+
+  nextMonth(): void {
+    this.currentMonth.setMonth(this.currentMonth.getMonth() + 1);
+    this.updateDateRangeFilter();
+  }
+
+  currentMonthName(): string {
+    return this.currentMonth.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+  }
+
+  private updateDateRangeFilter(): void {
+    const startOfMonth = new Date(this.currentMonth.getFullYear(), this.currentMonth.getMonth(), 1);
+    const endOfMonth = new Date(this.currentMonth.getFullYear(), this.currentMonth.getMonth() + 1, 0);
+    
+    this.filterForm.patchValue({
+      startDate: startOfMonth,
+      endDate: endOfMonth
+    });
+  }
+
+  resetFilters(): void {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    
+    this.currentMonth = new Date();
+    this.filterForm.patchValue({
+      categoryId: '',
+      startDate: startOfMonth,
+      endDate: endOfMonth,
+      searchText: ''
+    });
+  }
+
+  deleteExpense(expense: Expense): void {
+    if (confirm(`Are you sure you want to delete this expense: ${this.formatCurrency(expense.amount)} for ${expense.categoryName}?`)) {
+      this.expenseService.deleteExpense(expense.expenseId)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: () => {
+            this.snackBar.open('Expense deleted successfully', 'Close', {
+              duration: 3000,
+              panelClass: 'success-snackbar'
+            });
+            this.loadAllExpenses();
+          },
+          error: (error) => {
+            this.snackBar.open('Failed to delete expense', 'Close', {
+              duration: 3000,
+              panelClass: 'error-snackbar'
+            });
+            console.error('Error deleting expense:', error);
+          }
+        });
+    }
+  }
+
+  editExpense(expense: Expense): void {
+    // Fill the form with the selected expense data
+    this.expenseForm.patchValue({
+      amount: expense.amount,
+      categoryId: expense.categoryId,
+      description: expense.description,
+      expenseDate: new Date(expense.expenseDate)
+    });
+    this.showExpenseForm = true;
+    setTimeout(() => this.focusAmountField(), 100);
+  }
+
+  getTotalSpent(): number {
+    return this.filteredExpenses.reduce((total, expense) => total + expense.amount, 0);
+  }
+
+  getExpenseCountByCategory(): { [key: string]: number } {
+    return this.filteredExpenses.reduce((count, expense) => {
+      count[expense.categoryName] = (count[expense.categoryName] || 0) + 1;
+      return count;
+    }, {} as { [key: string]: number });
+  }
+
+  // Helper methods for engaging visual elements
+  getCategoryIcon(categoryName: string): string {
+    const iconMap: { [key: string]: string } = {
+      // Food & Dining
+      'Groceries': 'shopping_cart',
+      'Restaurants': 'restaurant',
+      'Fast Food': 'fastfood',
+      'Coffee': 'local_cafe',
+      'Dining Out': 'restaurant_menu',
+      
+      // Transportation
+      'Gas': 'local_gas_station',
+      'Public Transport': 'directions_bus',
+      'Uber/Lyft': 'local_taxi',
+      'Parking': 'local_parking',
+      'Car Maintenance': 'build',
+      
+      // Entertainment
+      'Movies': 'movie',
+      'Streaming': 'live_tv',
+      'Gaming': 'sports_esports',
+      'Books': 'menu_book',
+      'Music': 'music_note',
+      
+      // Shopping
+      'Clothing': 'checkroom',
+      'Electronics': 'devices',
+      'Home Goods': 'home',
+      'Personal Care': 'face',
+      'Gifts': 'card_giftcard',
+      
+      // Health & Fitness
+      'Gym': 'fitness_center',
+      'Healthcare': 'local_hospital',
+      'Pharmacy': 'local_pharmacy',
+      'Sports': 'sports_soccer',
+      
+      // Bills & Utilities
+      'Rent': 'home',
+      'Utilities': 'bolt',
+      'Phone': 'phone',
+      'Internet': 'wifi',
+      'Insurance': 'security',
+      
+      // Education
+      'Tuition': 'school',
+      'Textbooks': 'menu_book',
+      'Supplies': 'inventory',
+      
+      // Default categories
+      'Other': 'category',
+      'Miscellaneous': 'more_horiz'
+    };
+
+    return iconMap[categoryName] || 'receipt';
+  }
+
+  getAmountIcon(amount: number): string {
+    if (amount > 100) return 'trending_up';
+    if (amount > 50) return 'remove';
+    return 'trending_down';
+  }
+
+  getAmountColor(amount: number): string {
+    if (amount > 100) return 'var(--color-error)';
+    if (amount > 50) return 'var(--color-warning)';
+    return 'var(--color-success)';
   }
 }

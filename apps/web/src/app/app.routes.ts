@@ -10,7 +10,7 @@ import { CategoryClassificationComponent } from './features/budget-setup/categor
 import { ExpenseLoggingComponent } from './features/expense-tracking/expense-logging.component';
 
 export const routes: Routes = [
-  { path: '', redirectTo: '/dashboard', pathMatch: 'full' },
+  { path: '', redirectTo: '/login', pathMatch: 'full' },
   { path: 'login', component: LoginComponent },
   { path: 'register', component: RegisterComponent },
   { path: 'onboarding', component: OnboardingComponent, canActivate: [AuthGuard] },
