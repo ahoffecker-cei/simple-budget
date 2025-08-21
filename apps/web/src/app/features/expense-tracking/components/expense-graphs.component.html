@@ -1,0 +1,112 @@
+<div class="expense-graphs-container">
+  <!-- Header with Period Selection -->
+  <div class="graphs-header">
+    <div class="header-content">
+      <h3 class="graphs-title">
+        <mat-icon>show_chart</mat-icon>
+        Spending Analytics
+      </h3>
+      <p class="graphs-subtitle">{{getPeriodLabel()}} • Tap bars for details</p>
+    </div>
+    
+    <mat-button-toggle-group 
+      [value]="currentPeriod" 
+      (change)="onPeriodChange($event.value)" 
+      class="period-toggle">
+      <mat-button-toggle value="day" matTooltip="Daily view">
+        <mat-icon>today</mat-icon>
+        Day
+      </mat-button-toggle>
+      <mat-button-toggle value="week" matTooltip="Weekly view">
+        <mat-icon>view_week</mat-icon>
+        Week
+      </mat-button-toggle>
+      <mat-button-toggle value="month" matTooltip="Monthly view">
+        <mat-icon>calendar_month</mat-icon>
+        Month
+      </mat-button-toggle>
+      <mat-button-toggle value="year" matTooltip="Yearly view">
+        <mat-icon>calendar_today</mat-icon>
+        Year
+      </mat-button-toggle>
+    </mat-button-toggle-group>
+  </div>
+
+  <!-- Navigation Controls -->
+  <div class="navigation-controls" *ngIf="chartData.length > 0">
+    <div class="nav-content">
+      <button mat-icon-button 
+              (click)="goToPrevious()" 
+              matTooltip="Previous {{currentPeriod}}"
+              class="nav-button">
+        <mat-icon>chevron_left</mat-icon>
+      </button>
+      
+      <div class="current-period">
+        <span class="period-display">{{getCurrentPeriodDisplay()}}</span>
+      </div>
+      
+      <button mat-icon-button 
+              (click)="goToNext()" 
+              [disabled]="!canGoNext()"
+              matTooltip="Next {{currentPeriod}}"
+              class="nav-button">
+        <mat-icon>chevron_right</mat-icon>
+      </button>
+      
+      <button mat-stroked-button 
+              (click)="goToCurrent()" 
+              matTooltip="Go to current period"
+              class="current-button">
+        <mat-icon>today</mat-icon>
+        Current
+      </button>
+    </div>
+  </div>
+
+  <!-- Summary Stats -->
+  <div class="summary-row" *ngIf="chartData.length > 0">
+    <div class="summary-stat">
+      <div class="stat-value">{{formatCurrency(getTotalSpent())}}</div>
+      <div class="stat-label">Total Spending</div>
+    </div>
+    <div class="summary-stat">
+      <div class="stat-value">{{formatCurrency(getAverageSpending())}}</div>
+      <div class="stat-label">Average per {{currentPeriod}}</div>
+    </div>
+    <div class="summary-stat" *ngIf="getHighestSpendingPeriod() as highest">
+      <div class="stat-value">{{formatCurrency(highest.amount)}}</div>
+      <div class="stat-label">Highest ({{highest.period}})</div>
+    </div>
+  </div>
+
+  <!-- Chart Container -->
+  <div class="chart-container" *ngIf="chartData.length > 0">
+    <canvas 
+      baseChart
+      [data]="chartDatasets"
+      [type]="chartType"
+      [options]="chartOptions"
+      class="expense-chart">
+    </canvas>
+  </div>
+
+  <!-- Empty State -->
+  <div class="empty-state" *ngIf="chartData.length === 0">
+    <mat-icon class="empty-icon">insert_chart_outlined</mat-icon>
+    <h4>No Spending Data</h4>
+    <p>Start tracking expenses to see your spending patterns and analytics!</p>
+  </div>
+
+  <!-- Interactive Hints -->
+  <div class="interaction-hints" *ngIf="chartData.length > 0">
+    <div class="hint">
+      <mat-icon>touch_app</mat-icon>
+      <span>Tap any bar to view detailed breakdown</span>
+    </div>
+    <div class="hint">
+      <mat-icon>palette</mat-icon>
+      <span>Colors match your budget categories</span>
+    </div>
+  </div>
+</div>

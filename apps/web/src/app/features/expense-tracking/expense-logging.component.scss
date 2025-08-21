@@ -1052,3 +1052,15 @@
   background-size: 200px 100%;
   animation: shimmer 1.5s infinite;
 }
+
+// Graphs card styling
+.graphs-card {
+  margin-bottom: var(--spacing-lg, 24px);
+  border-radius: var(--border-radius-lg, 12px);
+  box-shadow: var(--shadow-md, 0 4px 6px rgba(0, 0, 0, 0.1));
+  overflow: hidden;
+  
+  ::ng-deep .mat-card-content {
+    padding: 0 !important;
+  }
+}

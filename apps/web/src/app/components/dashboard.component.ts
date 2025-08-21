@@ -104,6 +104,20 @@ import { SavingsGoalsService } from '../services/savings-goals.service';
                         {{account.currentBalance | currency}}
                       </span>
                     </div>
+                    <div class="account-actions">
+                      <button mat-icon-button 
+                              class="edit-account-btn" 
+                              (click)="openEditAccountDialog(account)"
+                              matTooltip="Edit Account">
+                        <mat-icon>edit</mat-icon>
+                      </button>
+                      <button mat-icon-button 
+                              class="delete-account-btn" 
+                              (click)="deleteAccount(account)"
+                              matTooltip="Delete Account">
+                        <mat-icon>delete</mat-icon>
+                      </button>
+                    </div>
                     <mat-icon class="account-icon-small">{{getAccountTypeIcon(account.accountType)}}</mat-icon>
                   </div>
                 </div>
@@ -730,12 +744,74 @@ import { SavingsGoalsService } from '../services/savings-goals.service';
     .accounts-grid-compact .account-item {
       padding: var(--spacing-sm);
       border-radius: var(--border-radius-sm);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.2s ease-out;
+    }
+
+    .accounts-grid-compact .account-item:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .accounts-grid-compact .account-item .account-info {
+      flex: 1;
+      margin-right: var(--spacing-sm);
+    }
+
+    .accounts-grid-compact .account-item .account-actions {
+      display: flex;
+      gap: var(--spacing-xs);
+      opacity: 0;
+      transition: opacity 0.2s ease-out;
+      margin-right: var(--spacing-sm);
+    }
+
+    .accounts-grid-compact .account-item:hover .account-actions {
+      opacity: 1;
+    }
+
+    .edit-account-btn {
+      width: 32px;
+      height: 32px;
+      color: var(--color-secondary);
+      
+      &:hover {
+        background-color: rgba(90, 155, 212, 0.1);
+        transform: scale(1.05);
+      }
+      
+      mat-icon {
+        font-size: 16px !important;
+        width: 16px !important;
+        height: 16px !important;
+      }
+    }
+
+    .delete-account-btn {
+      width: 32px;
+      height: 32px;
+      color: var(--color-neutral-400);
+      
+      &:hover {
+        color: var(--color-warning);
+        background-color: rgba(249, 199, 79, 0.1);
+        transform: scale(1.05);
+      }
+      
+      mat-icon {
+        font-size: 16px !important;
+        width: 16px !important;
+        height: 16px !important;
+      }
     }
 
     .account-icon-small {
       font-size: 18px !important;
       width: 18px !important;
       height: 18px !important;
+      flex-shrink: 0;
     }
 
     .accounts-grid-compact .account-balance {
@@ -985,6 +1061,23 @@ import { SavingsGoalsService } from '../services/savings-goals.service';
     @media (max-width: 767px) {
       .financial-overview-stack {
         flex-direction: column;
+      }
+      
+      // Mobile: Always show account actions (no hover needed)
+      .accounts-grid-compact .account-item .account-actions {
+        opacity: 1;
+      }
+      
+      .edit-account-btn,
+      .delete-account-btn {
+        width: 28px;
+        height: 28px;
+        
+        mat-icon {
+          font-size: 14px !important;
+          width: 14px !important;
+          height: 14px !important;
+        }
       }
     }
 

@@ -152,6 +152,13 @@
       </mat-card-content>
     </mat-card>
 
+    <!-- Interactive Expense Graphs -->
+    <mat-card class="graphs-card">
+      <mat-card-content>
+        <app-expense-graphs [expenses]="filteredExpenses"></app-expense-graphs>
+      </mat-card-content>
+    </mat-card>
+
     <!-- Expenses Table -->
     <mat-card class="expenses-table-card">
       <mat-card-header>

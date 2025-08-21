@@ -25,6 +25,7 @@ import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 
 import { ExpenseTrackingService } from './services/expense-tracking.service';
 import { BudgetCategoriesService } from '../budget-setup/services/budget-categories.service';
+import { ExpenseGraphsComponent } from './components/expense-graphs.component';
 import { 
   BudgetCategory, 
   CreateExpenseRequest, 
@@ -59,7 +60,8 @@ import {
     MatSortModule,
     MatPaginatorModule,
     MatMenuModule,
-    MatDialogModule
+    MatDialogModule,
+    ExpenseGraphsComponent
   ],
   templateUrl: './expense-logging.component.html',
   styleUrls: ['./expense-logging.component.scss']
